@@ -47,12 +47,13 @@ CTRL_PREFIX="bm-ctrl"
 CNV_PREFIX="bm-cnv"
 STORE_PREFIX="bm-store"
 
-# Per-role NICs. The NUMBER of entries sets the NIC count; the VALUES are the
-# port groups. REVIEW these names for your networks — the counts match the spec
-# (ctrl=1, cnv=4, store=2) but the port-group choices are a starting point.
-CTRL_NETWORKS=(lab-192-168-4-0-b24)
-CNV_NETWORKS=(lab-192-168-4-0-b24 Trunk Trunk Trunk)
-STORE_NETWORKS=(lab-192-168-4-0-b24 Trunk)
+# NICs. Every node's FIRST NIC is on PRIMARY_NET — the same network all nodes
+# share. Any ADDITIONAL NICs default to TRUNK_NET. Set the per-role NIC count.
+PRIMARY_NET="${PRIMARY_NET:-lab-192-168-4-0-b24}"
+TRUNK_NET="${TRUNK_NET:-Trunk}"
+CTRL_NICS=1
+CNV_NICS=4
+STORE_NICS=2
 
 # Store data disk: 1 TB each, and each store node's disk lives on its OWN
 # datastore (a dedicated SSD). Index-aligned with the store nodes; there must
@@ -66,11 +67,11 @@ PASS=("$@")
 # Optional role filter: ONLY=ctrl|cnv|store
 ONLY="${ONLY:-}"
 
-# Expand a bash array of networks into repeated "--network X" args in NET_ARGS.
+# Build NET_ARGS for a NIC count: NIC 1 on PRIMARY_NET, any others on TRUNK_NET.
 build_net_args() {
-  NET_ARGS=()
-  local n
-  for n in "$@"; do NET_ARGS+=(--network "$n"); done
+  local count="$1" i
+  NET_ARGS=(--network "$PRIMARY_NET")
+  for ((i = 2; i <= count; i++)); do NET_ARGS+=(--network "$TRUNK_NET"); done
 }
 
 want() { [[ -z "$ONLY" || "$ONLY" == "$1" ]]; }
@@ -82,7 +83,7 @@ echo
 # --- Control plane -------------------------------------------------------
 if want ctrl; then
   for i in $(seq 1 "$CTRL_COUNT"); do
-    build_net_args "${CTRL_NETWORKS[@]}"
+    build_net_args "$CTRL_NICS"
     echo "== ${CTRL_PREFIX}-${i} (control plane) =="
     "$CREATE" --name "${CTRL_PREFIX}-${i}" \
       --cpu 12 --memory 32768 \
@@ -97,7 +98,7 @@ fi
 # --- CNV / nested-virt ---------------------------------------------------
 if want cnv; then
   for i in $(seq 1 "$CNV_COUNT"); do
-    build_net_args "${CNV_NETWORKS[@]}"
+    build_net_args "$CNV_NICS"
     echo "== ${CNV_PREFIX}-${i} (nested virt) =="
     "$CREATE" --name "${CNV_PREFIX}-${i}" \
       --cpu 16 --memory 49152 \
@@ -118,7 +119,7 @@ if want store; then
   fi
   for i in $(seq 1 "$STORE_COUNT"); do
     ds="${STORE_DATASTORES[$((i - 1))]}"
-    build_net_args "${STORE_NETWORKS[@]}"
+    build_net_args "$STORE_NICS"
     echo "== ${STORE_PREFIX}-${i} (store, data disk on $ds) =="
     "$CREATE" --name "${STORE_PREFIX}-${i}" \
       --cpu 12 --memory 32768 \

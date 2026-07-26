@@ -63,10 +63,12 @@ Common to all: 150 GB root disk on the shared datastore, RHEL9 guest, HW version
 ONLY=store ./create-cluster-vms.sh       # limit to one role: ctrl | cnv | store
 ```
 
+**Networking model:** every node's first NIC is on `PRIMARY_NET`
+(`lab-192-168-4-0-b24`), the network all nodes share; any additional NICs are on
+`TRUNK_NET` (`Trunk`). Per-role NIC counts are `CTRL_NICS` / `CNV_NICS` /
+`STORE_NICS`. Override the networks via the `PRIMARY_NET` / `TRUNK_NET` env vars.
+
 **Review before a real run:**
 
-- **Networks** — the NIC *counts* match the spec, but the port-group *names* in
-  `CTRL_NETWORKS` / `CNV_NETWORKS` / `STORE_NETWORKS` are starting points. In
-  particular the CNV nodes default to three `Trunk` NICs; set the real port groups.
 - **Folder** — defaults to `/Garden/vm`; set `FOLDER` to a per-cluster folder if
   desired (it must already exist — `govc` will not create it).
