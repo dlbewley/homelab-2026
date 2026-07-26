@@ -55,6 +55,10 @@ VPMC=0                      # vPMCEnabled      — virtual CPU performance count
 CPU_HOT_ADD=0              # cpuHotAddEnabled
 MEM_HOT_ADD=0              # memoryHotAddEnabled
 
+# disk.EnableUUID exposes stable disk UUIDs to the guest. Required by OpenShift /
+# Kubernetes (and the Assisted Installer) to mount disks reliably. On by default.
+DISK_UUID=1
+
 PRIMARY_DS="VMData"         # SHARED datastore — holds VM home + OS disk
 PRIMARY_SIZE="120GB"
 
@@ -86,6 +90,7 @@ while [[ $# -gt 0 ]]; do
     --vpmc)             VPMC=1; shift ;;
     --cpu-hot-add)      CPU_HOT_ADD=1; shift ;;
     --mem-hot-add)      MEM_HOT_ADD=1; shift ;;
+    --no-disk-uuid)     DISK_UUID=0; shift ;;
     --scsi)             SCSI="$2"; shift 2 ;;
     --nic-adapter)      NIC_ADAPTER="$2"; shift 2 ;;
     --network)          NETWORKS+=("$2"); shift 2 ;;
@@ -163,10 +168,11 @@ done
 # ---------------------------------------------------------------------------
 change_args=(vm.change -vm "$NAME")
 change=0
-[[ "$NESTED_HV"   -eq 1 ]] && { change_args+=(-nested-hv-enabled=true);     change=1; }
-[[ "$VPMC"        -eq 1 ]] && { change_args+=(-vpmc-enabled=true);          change=1; }
-[[ "$CPU_HOT_ADD" -eq 1 ]] && { change_args+=(-cpu-hot-add-enabled=true);   change=1; }
+[[ "$NESTED_HV"   -eq 1 ]] && { change_args+=(-nested-hv-enabled=true);      change=1; }
+[[ "$VPMC"        -eq 1 ]] && { change_args+=(-vpmc-enabled=true);           change=1; }
+[[ "$CPU_HOT_ADD" -eq 1 ]] && { change_args+=(-cpu-hot-add-enabled=true);    change=1; }
 [[ "$MEM_HOT_ADD" -eq 1 ]] && { change_args+=(-memory-hot-add-enabled=true); change=1; }
+[[ "$DISK_UUID"   -eq 1 ]] && { change_args+=(-e disk.enableUUID=TRUE);      change=1; }
 [[ "$change" -eq 1 ]] && run govc "${change_args[@]}"
 
 # ---------------------------------------------------------------------------
