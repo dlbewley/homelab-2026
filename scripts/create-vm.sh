@@ -37,9 +37,9 @@ set -euo pipefail
 # Defaults — a hub-4k77l-store-* node
 # ---------------------------------------------------------------------------
 NAME=""
-CPU=12
+CPU=16
 CORES_PER_SOCKET=1          # store nodes use 1; only applied when != 1 (best effort)
-MEMORY_MB=32768             # 32 GB
+MEMORY_MB=34816             # 34 GB
 GUEST_ID="rhel9_64Guest"
 FIRMWARE="efi"              # bios | efi
 HW_VERSION=""               # ESXi hardware version, e.g. 19 (max on vCenter 7.0.3); empty = host default

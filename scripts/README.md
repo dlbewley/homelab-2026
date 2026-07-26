@@ -51,7 +51,7 @@ block at the top of the file.
 |------|--------|-----|-----|-----|------|-------|
 | control plane | `bm-ctrl` | 3 | 12 | 32 GB | 1 | — |
 | CNV | `bm-cnv` | 4 | 16 | 48 GB | 4 | nested virt + vPMC + CPU hot-add |
-| store | `bm-store` | 3 | 12 | 32 GB | 2 | 1 TB data disk on a unique EVO SSD |
+| store | `bm-store` | 3 | 16 | 34 GB | 2 | 1 TB data disk on a unique EVO SSD |
 
 Common to all: 150 GB root disk on the shared datastore, RHEL9 guest, HW version
 19, created powered-off.
