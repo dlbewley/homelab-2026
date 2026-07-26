@@ -184,13 +184,15 @@ fi
 #    "[EVO-1] <vm>/osd-001.vmdk".
 # ---------------------------------------------------------------------------
 if [[ "$WANT_SECONDARY" -eq 1 ]]; then
+  # No -controller: vm.disk.create's -controller wants an existing controller
+  # DEVICE name (e.g. pvscsi-1000), not a type like "pvscsi". Omitting it
+  # attaches to the VM's existing SCSI controller — the pvscsi one created above.
   disk_args=(
     vm.disk.create
     -vm "$NAME"
     -ds "$SECONDARY_DS"
     -name "$NAME/$SECONDARY_NAME"
     -size "$SECONDARY_SIZE"
-    -controller "$SCSI"
   )
   [[ "$SECONDARY_THIN" -eq 1 ]] || disk_args+=(-thick)
   run govc "${disk_args[@]}"
