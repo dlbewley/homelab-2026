@@ -114,6 +114,16 @@ run() {
   [[ "$DRY_RUN" -eq 1 ]] || "$@"
 }
 
+# Idempotency: if a VM of this name already exists, skip it so a batch run can
+# be re-run safely to finish the rest. (Skipped on dry-run so plans stay full.)
+# Use command substitution rather than `| grep -q` — under `set -o pipefail`,
+# grep -q closing the pipe early makes govc die with SIGPIPE and the pipeline
+# report non-zero, which would defeat the check.
+if [[ "$DRY_RUN" -ne 1 && -n "$(govc vm.info "$NAME" 2>/dev/null)" ]]; then
+  echo "SKIP: $NAME already exists"
+  exit 0
+fi
+
 # ---------------------------------------------------------------------------
 # 1. Create the VM shell + primary/OS disk on the SHARED datastore.
 #    -on=false so we can attach the data disk before first boot.
@@ -195,3 +205,4 @@ fi
 
 echo "Done: $NAME"
 [[ "$DRY_RUN" -eq 1 ]] && echo "(dry run — nothing was changed)"
+exit 0
