@@ -14,7 +14,7 @@ OS or cluster install.
 
 ### `create-vm.sh` — single-VM primitive
 
-Creates one VM, modeled on the `hub-4k77l-*` nodes: RHEL8/EFI, pvscsi, vmxnet3,
+Creates one VM, modeled on the `hub-4k77l-*` nodes: RHEL9/EFI, pvscsi, vmxnet3,
 an OS disk on a **shared** datastore and an optional data disk on a **unique**
 per-VM datastore. Everything (CPU, memory, NICs, firmware, disks, datastores,
 nested virtualization) is a flag so other VM types reuse it.
@@ -23,9 +23,9 @@ nested virtualization) is a flag so other VM types reuse it.
 # store node: OS on shared VMData, 1 TB OSD disk on the EVO-1 SSD
 ./create-vm.sh --name bm-store-1 --primary-ds VMData --secondary-ds EVO-1
 
-# nested-virt (CNV) node: expose VT-x to the guest, 16c/48G, two NICs, HW v15
+# nested-virt (CNV) node: expose VT-x to the guest, 16c/48G, two NICs, HW v19
 ./create-vm.sh --name bm-cnv-1 --cpu 16 --memory 49152 \
-    --nested --vpmc --cpu-hot-add --hw-version 15 \
+    --nested --vpmc --cpu-hot-add --hw-version 19 \
     --network lab-192-168-4-0-b24 --network Trunk --no-secondary
 ```
 
@@ -53,8 +53,8 @@ block at the top of the file.
 | CNV | `bm-cnv` | 4 | 16 | 48 GB | 4 | nested virt + vPMC + CPU hot-add |
 | store | `bm-store` | 3 | 12 | 32 GB | 2 | 1 TB data disk on a unique EVO SSD |
 
-Common to all: 150 GB root disk on the shared datastore, HW version 15, created
-powered-off.
+Common to all: 150 GB root disk on the shared datastore, RHEL9 guest, HW version
+19, created powered-off.
 
 ```bash
 ./create-cluster-vms.sh --dry-run       # print every govc command, change nothing

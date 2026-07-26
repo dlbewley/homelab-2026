@@ -25,9 +25,9 @@
 #   ./create-vm.sh --name router-1 --network Trunk --network Management
 #
 #   # A CNV / nested-virt node (like hub-4k77l-cnv-*): expose VT-x to the guest,
-#   # 16 vCPU / 48 GB, two NICs, single OS disk, HW v15:
+#   # 16 vCPU / 48 GB, two NICs, single OS disk, HW v19:
 #   ./create-vm.sh --name cnv-1 --cpu 16 --memory 49152 \
-#       --nested --vpmc --cpu-hot-add --hw-version 15 \
+#       --nested --vpmc --cpu-hot-add --hw-version 19 \
 #       --network lab-192-168-4-0-b24 --network Trunk \
 #       --primary-ds VMData --no-secondary
 #
@@ -40,9 +40,9 @@ NAME=""
 CPU=12
 CORES_PER_SOCKET=1          # store nodes use 1; only applied when != 1 (best effort)
 MEMORY_MB=32768             # 32 GB
-GUEST_ID="rhel8_64Guest"
+GUEST_ID="rhel9_64Guest"
 FIRMWARE="efi"              # bios | efi
-HW_VERSION=""               # ESXi hardware version, e.g. 15 (cnv nodes are vmx-15); empty = host default
+HW_VERSION=""               # ESXi hardware version, e.g. 19 (max on vCenter 7.0.3); empty = host default
 SCSI="pvscsi"               # disk controller type
 NIC_ADAPTER="vmxnet3"
 NETWORKS=()                 # collected via repeated --network; defaults below

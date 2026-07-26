@@ -11,7 +11,7 @@
 #   cnv     bm-cnv      4   16   48 GB   4    nested virt (VT-x) + vPMC + hot-add
 #   store   bm-store    3   12   32 GB   2    + 1 TB data disk on a unique EVO SSD
 #
-# Common to all: 150 GB root disk on a shared datastore, HW version 15.
+# Common to all: 150 GB root disk on a shared datastore, RHEL9 guest, HW version 19.
 #
 # The VMs are created powered-off so you can PXE/virtual-media boot them like
 # bare metal. This script does NOT install OpenShift — it only builds hardware.
@@ -34,7 +34,7 @@ CREATE="$HERE/create-vm.sh"
 # ===========================================================================
 PRIMARY_DS="${PRIMARY_DS:-VMData}"     # shared datastore holding every root disk
 ROOT_SIZE="${ROOT_SIZE:-150GB}"        # common root disk for all node types
-HW_VERSION="${HW_VERSION:-15}"         # keep the cluster on one HW version
+HW_VERSION="${HW_VERSION:-19}"         # keep the cluster on one HW version (19 = max on vCenter 7.0.3)
 FOLDER="${FOLDER:-/Garden/vm}"         # inventory folder (must already exist)
 
 # Counts per role
