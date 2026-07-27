@@ -13,12 +13,28 @@ Installs an operator. Each `base/` is the same three objects:
 | `operatorgroup.yaml` | 1 | Own-namespace install mode |
 | `subscription.yaml` | 2 | Channel pinned, `installPlanApproval: Automatic` |
 
-Channels were verified against the live hub cluster (OpenShift 4.22.5) on
-2026-07-27. Re-check after an upgrade:
+The OperatorGroup shape must match what the operator supports. `targetNamespaces`
+requests OwnNamespace/SingleNamespace; an empty `spec: {}` requests AllNamespaces.
+`metallb` and `external-secrets` are AllNamespaces-only; the rest use
+`targetNamespaces`.
+
+`scripts/verify-channels.sh` checks both the pinned channel and the
+OperatorGroup shape against the catalog. Run it after an OpenShift upgrade, and
+after adding any component:
 
 ```bash
 scripts/verify-channels.sh
 ```
+
+> **ArgoCD will not catch a failed operator install.** It manages the Namespace,
+> OperatorGroup and Subscription; the CSV is created by OLM and is not part of
+> the Application, so the app reports Synced/Healthy while the operator sits in
+> `Failed`. Confirm an operator actually installed by looking at the CSV, not at
+> ArgoCD:
+>
+> ```bash
+> oc get csv -A | grep -v Succeeded
+> ```
 
 ## config/
 
