@@ -16,9 +16,16 @@ spec:
   encryption:
     kms: {}
   externalStorage: {}
+  # Only fields present in the CRD schema may appear here. ArgoCD syncs this
+  # with server-side apply, which rejects unknown fields outright rather than
+  # ignoring them:
+  #   failed to create typed patch object ... field not declared in schema
+  # Check before adding one:
+  #   oc get crd storageclusters.ocs.openshift.io -o json | jq -r \
+  #     '.spec.versions[]|select(.name=="v1").schema.openAPIV3Schema.properties.spec.properties.managedResources.properties|keys[]'
+  # (cephConfig was valid in older ODF releases but is not in 4.22.)
   managedResources:
     cephBlockPools: {}
-    cephConfig: {}
     cephFilesystems: {}
     cephObjectStoreUsers: {}
     cephObjectStores: {}

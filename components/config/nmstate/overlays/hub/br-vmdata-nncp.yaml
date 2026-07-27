@@ -14,10 +14,29 @@
 #      the same names, or split this into one NNCP per node.
 #   2. Grabbing the wrong NIC will cut the node off the network. Never point
 #      this at ens192.
+#
+# ORDERING: the NodeNetworkConfigurationPolicy CRD does not exist until the
+# NMState CR in ../../base has been reconciled and the handler has registered
+# it. Two annotations are needed to survive that gap:
+#
+#   sync-wave 10                  applied after the NMState CR in wave 0
+#   SkipDryRunOnMissingResource   ArgoCD dry-runs the whole manifest set before
+#                                 syncing. Without this, an unknown kind fails
+#                                 the dry-run with "one or more synchronization
+#                                 tasks are not valid" and aborts the sync —
+#                                 including the NMState CR that would have
+#                                 created this CRD. That deadlocks: retrying
+#                                 never resolves it.
+#
+# If the CRD is still unregistered when wave 10 runs, the sync fails and the
+# normal retry/backoff picks it up once the handler is up.
 apiVersion: nmstate.io/v1
 kind: NodeNetworkConfigurationPolicy
 metadata:
   name: br-vmdata
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   nodeSelector:
     node-role.kubernetes.io/virtualization: ""
