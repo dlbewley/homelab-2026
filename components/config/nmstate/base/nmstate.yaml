@@ -1,8 +1,25 @@
 ---
 # Cluster-scoped CR that tells the operator to deploy the nmstate handler
-# DaemonSet. NodeNetworkConfigurationPolicies are layered on in overlays.
+# DaemonSet, which in turn registers the NodeNetworkConfigurationPolicy,
+# NodeNetworkState and NodeNetworkConfigurationEnactment CRDs.
+#
+# The spec below reproduces the operator's own defaults verbatim rather than
+# using `spec: {}`. Declaring them keeps ArgoCD's desired state identical to
+# what the operator reconciles to, so the resource does not sit permanently
+# OutOfSync against operator-populated defaults.
+#
+# Sync wave 0: this must be applied and reconciled before anything that uses the
+# CRDs it brings in. See the NNCP in overlays/hub for the other half.
 apiVersion: nmstate.io/v1
 kind: NMState
 metadata:
   name: nmstate
-spec: {}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  logLevel: info
+  probeConfiguration:
+    dns:
+      host: root-servers.net
+  metricsConfiguration:
+    bindAddress: ':8089'
