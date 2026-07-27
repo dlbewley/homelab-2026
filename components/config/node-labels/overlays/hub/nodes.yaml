@@ -1,0 +1,80 @@
+---
+# Node role labels for the 'hub' cluster.
+#
+# This is the one place in components/ that names individual machines, which is
+# why it exists only as a cluster overlay and has no base.
+#
+# ODF places OSDs on nodes carrying cluster.ocs.openshift.io/openshift-storage.
+# The ODF operator applies that label itself when you drive it from the console;
+# under GitOps nothing does, so we declare it here.
+#
+# SAFETY: Nodes are pre-existing cluster-scoped objects that ArgoCD did not
+# create. The Application in clusters/hub/config.yaml sets prune=false, and each
+# object below opts out of deletion as a second line of defence. Combined with
+# ServerSideApply, ArgoCD owns only the labels declared here and leaves the rest
+# of the Node object (taints, spec, other labels) alone.
+apiVersion: v1
+kind: Node
+metadata:
+  name: store-1
+  labels:
+    cluster.ocs.openshift.io/openshift-storage: ""
+    node-role.kubernetes.io/storage: ""
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: store-2
+  labels:
+    cluster.ocs.openshift.io/openshift-storage: ""
+    node-role.kubernetes.io/storage: ""
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: store-3
+  labels:
+    cluster.ocs.openshift.io/openshift-storage: ""
+    node-role.kubernetes.io/storage: ""
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: cnv-1
+  labels:
+    node-role.kubernetes.io/virtualization: ""
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: cnv-2
+  labels:
+    node-role.kubernetes.io/virtualization: ""
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: cnv-3
+  labels:
+    node-role.kubernetes.io/virtualization: ""
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: cnv-4
+  labels:
+    node-role.kubernetes.io/virtualization: ""
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false

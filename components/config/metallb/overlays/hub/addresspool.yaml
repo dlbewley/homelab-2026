@@ -1,0 +1,26 @@
+---
+# The machine network is 192.168.4.0/24. Known occupants: the API VIP
+# (192.168.4.17), the Apps VIP (192.168.4.16) and DHCP-assigned node addresses
+# observed in the .47-.142 range (regenerate with scripts/collect-nics.sh).
+#
+# The range below is a guess that avoids those, NOT something I could verify —
+# it must not overlap your router's DHCP scope. Confirm the scope, then
+# uncomment these resources in kustomization.yaml.
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: lab-pool
+  namespace: metallb-system
+spec:
+  autoAssign: true
+  addresses:
+    - 192.168.4.200-192.168.4.230
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: lab-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - lab-pool

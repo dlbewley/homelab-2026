@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# hub store nodes are 16 vCPU / 34 GB (see commit cf40bc6), which comfortably
+# covers the ODF resource requests below. Trim these if you shrink the nodes.
+patches:
+  - target:
+      kind: StorageCluster
+      name: ocs-storagecluster
+    patch: |-
+      - op: add
+        path: /spec/resources
+        value:
+          mds:
+            requests:
+              cpu: "3"
+              memory: "8Gi"
+            limits:
+              cpu: "3"
+              memory: "8Gi"
+      - op: add
+        path: /spec/storageDeviceSets/0/resources
+        value:
+          requests:
+            cpu: "2"
+            memory: "5Gi"
+          limits:
+            cpu: "2"
+            memory: "5Gi"

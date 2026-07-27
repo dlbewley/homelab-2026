@@ -9,7 +9,7 @@
 #   ----    ------     ---  ---  ----   ----  -----------------------------------
 #   ctrl    bm-ctrl     3   12   32 GB   1    control plane
 #   cnv     bm-cnv      4   16   48 GB   4    nested virt (VT-x) + vPMC + hot-add
-#   store   bm-store    3   12   32 GB   2    + 1 TB data disk on a unique EVO SSD
+#   store   bm-store    3   16   34 GB   2    + 1 TB data disk on a unique EVO SSD
 #
 # Common to all: 150 GB root disk on a shared datastore, RHEL9 guest, HW version 19.
 #
@@ -122,7 +122,7 @@ if want store; then
     build_net_args "$STORE_NICS"
     echo "== ${STORE_PREFIX}-${i} (store, data disk on $ds) =="
     "$CREATE" --name "${STORE_PREFIX}-${i}" \
-      --cpu 12 --memory 32768 \
+      --cpu 16 --memory 34816 \
       "${NET_ARGS[@]}" \
       --primary-ds "$PRIMARY_DS" --primary-size "$ROOT_SIZE" \
       --secondary-ds "$ds" --secondary-size "$STORE_DATA_SIZE" \

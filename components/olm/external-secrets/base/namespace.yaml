@@ -1,0 +1,17 @@
+---
+# Namespace name comes from the operator's own suggestion, not from the package
+# name (which is openshift-external-secrets-operator):
+#   oc get packagemanifest openshift-external-secrets-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.channels[0].currentCSVDesc.annotations.operatorframework\.io/suggested-namespace}'
+#   -> external-secrets-operator
+#
+# This is where the OPERATOR runs. The operand — the external-secrets
+# controller, and the onepassword-connect-token secret it reads — lives in the
+# separate `external-secrets` namespace created by ExternalSecretsConfig.
+# See components/config/external-secrets/README.md.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

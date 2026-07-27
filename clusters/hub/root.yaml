@@ -1,0 +1,29 @@
+---
+# The app of apps. You apply this directory once by hand; from then on this
+# Application watches the same directory and every change to the AppProject or
+# to either ApplicationSet arrives through git.
+#
+# It deliberately manages only clusters/hub/ — the ApplicationSets it contains
+# are what reach into components/.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hub-root
+  namespace: openshift-gitops
+spec:
+  project: hub
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-gitops
+  source:
+    repoURL: https://github.com/dlbewley/homelab-2026.git
+    targetRevision: main
+    path: clusters/hub
+  syncPolicy:
+    automated:
+      # Pruning here would let a bad commit delete every ApplicationSet at once.
+      # Remove an entry from an ApplicationSet's element list instead.
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true

@@ -12,8 +12,8 @@ export KUBECONFIG=/Users/dale/.kube/ocp/hub/kubeconfig
 #export APP_SELECTOR="app.kubernetes.io/name=$APP_NAME"
 
 # enable VMware interaction
-#
 source /Users/dale/.govc.env
+
 export CONTAINER_TOOL=podman
 export KIND_EXPERIMENTAL_PROVIDER=podman
 

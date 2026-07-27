@@ -1,0 +1,85 @@
+---
+# What the 'hub' cluster is configured to be, once the operators from
+# operators.yaml are installed.
+#
+# ORDERING: these Applications are created by the ApplicationSet controller
+# directly, not synced by a parent Application, so sync-wave annotations do NOT
+# order them relative to each other or to the operator layer. Convergence is by
+# retry instead: an Application whose CRD does not exist yet fails, backs off
+# and succeeds once the operator lands. That is the same loop as the "apply
+# again until no errors" note in the old runbook, just automated. If you ever
+# need strict ordering, add a RollingSync strategy here.
+#
+# Path convention: overlays/hub when the component has cluster-specific values,
+# base when it does not.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: hub-config
+  namespace: openshift-gitops
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - list:
+        elements:
+          # Must land before ODF: the LocalVolumeSet and StorageCluster both
+          # select nodes by the label this applies.
+          - name: node-labels
+            namespace: default
+            path: components/config/node-labels/overlays/hub
+          - name: nmstate
+            namespace: openshift-nmstate
+            path: components/config/nmstate/overlays/hub
+          - name: metallb
+            namespace: metallb-system
+            path: components/config/metallb/overlays/hub
+          - name: local-storage
+            namespace: openshift-local-storage
+            path: components/config/local-storage/overlays/hub
+          - name: odf
+            namespace: openshift-storage
+            path: components/config/odf/overlays/hub
+          - name: virtualization
+            namespace: openshift-cnv
+            path: components/config/virtualization/base
+  template:
+    metadata:
+      name: 'hub-cfg-{{ .name }}'
+      labels:
+        homelab.bewley.net/cluster: hub
+        homelab.bewley.net/layer: config
+        homelab.bewley.net/component: '{{ .name }}'
+    spec:
+      project: hub
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ .namespace }}'
+      source:
+        repoURL: https://github.com/dlbewley/homelab-2026.git
+        targetRevision: main
+        path: '{{ .path }}'
+      syncPolicy:
+        automated:
+          # Pruning is on for the layer, but individual resources can opt out.
+          # The Node objects in components/config/node-labels carry
+          #   argocd.argoproj.io/sync-options: Prune=false,Delete=false
+          # because they predate ArgoCD and must never be deleted by it.
+          # (Opting out per resource rather than per Application because
+          # syncPolicy.automated.prune is a bool in the CRD and cannot be
+          # templated from a generator element.)
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=false
+          # Operators own large parts of these CRs (HyperConverged and
+          # StorageCluster in particular). Server-side apply lets ArgoCD own
+          # only the fields git declares instead of overwriting the whole object.
+          - ServerSideApply=true
+        retry:
+          limit: 20
+          backoff:
+            duration: 15s
+            factor: 2
+            maxDuration: 5m

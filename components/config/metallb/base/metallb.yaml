@@ -1,0 +1,9 @@
+---
+# Deploys the MetalLB speaker/controller. Address pools carry site-specific IP
+# ranges and therefore live in overlays.
+apiVersion: metallb.io/v1beta1
+kind: MetalLB
+metadata:
+  name: metallb
+  namespace: metallb-system
+spec: {}

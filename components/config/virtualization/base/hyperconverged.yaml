@@ -1,0 +1,26 @@
+---
+# OpenShift Virtualization. Left close to defaults; the operator fills in a
+# large status/spec surface of its own, so the Application that ships this uses
+# ServerSideApply to avoid fighting it.
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  # Live migration over the machine network. Revisit if a dedicated migration
+  # network is added on one of the spare Trunk NICs.
+  liveMigrationConfig:
+    completionTimeoutPerGiB: 800
+    parallelMigrationsPerCluster: 5
+    parallelOutboundMigrationsPerNode: 2
+    progressTimeout: 150
+  featureGates:
+    enableCommonBootImageImport: true
+    deployKubeSecondaryDNS: false
+  # Confine virt workloads to the nodes labelled in
+  # components/config/node-labels. Drop this block to let VMs run anywhere.
+  workloads:
+    nodePlacement:
+      nodeSelector:
+        node-role.kubernetes.io/virtualization: ""

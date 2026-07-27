@@ -1,0 +1,8 @@
+---
+# Cluster-scoped CR that tells the operator to deploy the nmstate handler
+# DaemonSet. NodeNetworkConfigurationPolicies are layered on in overlays.
+apiVersion: nmstate.io/v1
+kind: NMState
+metadata:
+  name: nmstate
+spec: {}
