@@ -1,11 +1,18 @@
 ---
+# Empty spec means AllNamespaces install mode, which is the ONLY mode this
+# operator supports:
+#   oc get packagemanifest openshift-external-secrets-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.channels[0].currentCSVDesc.installModes}'
+#   -> only AllNamespaces is supported:true
+#
+# Setting targetNamespaces here (as the other components in this repo do) would
+# request OwnNamespace mode and the subscription would fail to resolve with
+# "AllNamespaces InstallModeType not supported".
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
   name: external-secrets-operatorgroup
-  namespace: openshift-external-secrets-operator
+  namespace: external-secrets-operator
   annotations:
     argocd.argoproj.io/sync-wave: "1"
-spec:
-  targetNamespaces:
-    - openshift-external-secrets-operator
+spec: {}

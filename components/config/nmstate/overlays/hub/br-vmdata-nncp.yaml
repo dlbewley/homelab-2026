@@ -8,7 +8,7 @@
 #   ens256  DOWN  00:50:56:b4:1e:ed  <- adapter 3, Trunk, unused
 #   ens161  DOWN  00:50:56:b4:5a:88  <- adapter 4, Trunk, unused
 #
-# ens161 is chosen because it is down and unaddressed. Two caveats before you
+# ens161 wass chosen because it is down and unaddressed. Two caveats before you
 # enable this (it is commented out of kustomization.yaml until you confirm):
 #   1. Interface names were only checked on cnv-1. Confirm cnv-2 and cnv-4 use
 #      the same names, or split this into one NNCP per node.
@@ -25,7 +25,7 @@ spec:
     interfaces:
       - name: br-vmdata
         description: Bridge to the lab Trunk network for VM traffic
-        type: linux-bridge
+        type: ovs-bridge
         state: up
         ipv4:
           enabled: false
@@ -33,7 +33,15 @@ spec:
           enabled: false
         bridge:
           options:
+            allow-extra-patch-ports: true
+            mcast-snooping-enable: true
             stp:
               enabled: false
           port:
-            - name: ens161
+            - name: ens224
+    ovn:
+      bridge-mappings:
+        # physicalNetworkName in CUDN/NAD
+        - localnet: physnet-vmdata
+          bridge: br-vmdata
+          state: present

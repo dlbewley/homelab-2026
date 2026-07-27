@@ -36,9 +36,11 @@ spec:
           - name: virtualization
             namespace: openshift-cnv
             path: components/olm/virtualization/base
-          # Not yet enabled — see homelab-2026-4pq.5 for the 1Password wiring.
+          # Not yet enabled. Enabling this also means adding a matching element
+          # to config.yaml and creating the service-account token secret by
+          # hand — see components/config/external-secrets/README.md.
           # - name: external-secrets
-          #   namespace: openshift-external-secrets-operator
+          #   namespace: external-secrets-operator
           #   path: components/olm/external-secrets/base
   template:
     metadata:

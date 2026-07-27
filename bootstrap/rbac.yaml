@@ -9,7 +9,9 @@ metadata:
   annotations:
     openshift.io/description: >-
       Cluster administrators. Also grants admin in the ArgoCD console.
-users: []
+users:
+  - admin
+  - dlbewley
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

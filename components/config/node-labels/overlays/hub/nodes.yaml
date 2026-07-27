@@ -61,8 +61,15 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
 ---
-# NOTE: a cnv-3 VM exists but is not currently joined to the cluster; the
-# machineset reports 7 desired / 6 ready. Add it here when it joins.
+apiVersion: v1
+kind: Node
+metadata:
+  name: cnv-3
+  labels:
+    node-role.kubernetes.io/virtualization: ""
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
 apiVersion: v1
 kind: Node
 metadata:

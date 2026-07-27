@@ -59,9 +59,9 @@ is versioned and reviewable here instead of hidden in an Application spec.
 
 | Component | OLM | Config | Notes |
 |---|---|---|---|
-| nmstate | ✅ | ✅ | `br-vmdata` NNCP written but commented out — NIC names confirmed on cnv-1 only |
+| nmstate | ✅ | ✅ | `br-vmdata` OVS bridge on `ens224`, with an OVN localnet mapping for `physnet-vmdata` |
 | metallb | ✅ | ✅ | Address pool written but commented out — IP range unverified |
 | local-storage | ✅ | ✅ | Bounded to the 1TiB `sdb` on each store node |
 | odf | ✅ | ✅ | 3 × 1TiB OSDs, `flexibleScaling` |
 | virtualization | ✅ | ✅ | Workloads pinned to `node-role.kubernetes.io/virtualization` |
-| external-secrets | ✅ | ⬜ | Not enabled; 1Password wiring is `homelab-2026-4pq.5` |
+| external-secrets | ✅ | ✅ | `onepasswordSDK` provider against the `eso` vault. Manifests complete but not yet referenced by an ApplicationSet, and the token secret is a manual step — see [its README](config/external-secrets/README.md) |

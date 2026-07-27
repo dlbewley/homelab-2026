@@ -35,11 +35,9 @@ The human-facing binding is named **`homelab-cluster-admins`**, not
 name whose subjects are the `system:cluster-admins` group and the `system:admin`
 user; reusing the name replaces them.
 
-Add yourself to the group:
-
-```bash
-oc adm groups add-users cluster-admins dlbewley
-```
+Group membership is declared in `rbac.yaml` rather than added imperatively with
+`oc adm groups add-users`, so it is reviewable and survives a rebuild. Edit the
+`users:` list there to grant access.
 
 The default ArgoCD instance already maps that group to the ArgoCD `admin` role:
 

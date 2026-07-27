@@ -11,9 +11,10 @@ The Bewley hub cluster. `apps.hub.lab.bewley.net`, OpenShift 4.22.5, platform
 | store-1..3 | worker → storage | 150G root + **1TiB non-rotational `sdb`** for ODF |
 | cnv-1, cnv-2, cnv-4 | worker → virtualization | 4 NICs: adapter 1 on the lab network is the `br-ex` uplink, adapters 2-4 on Trunk |
 
-A `cnv-3` VM exists but is not currently joined — the machineset reports 7
-desired / 6 ready. Add it to
-`components/config/node-labels/overlays/hub/nodes.yaml` when it joins.
+`cnv-3` is declared in `components/config/node-labels/overlays/hub/nodes.yaml`
+but was not joined to the cluster as of 2026-07-27 (the machineset reported 7
+desired / 6 ready). Its Application will report that node as missing until it
+joins; that is expected and does not block the others.
 
 NIC and MAC inventory can be regenerated at any time with
 [scripts/collect-nics.sh](../../scripts/collect-nics.sh).
@@ -64,15 +65,19 @@ Convergence order that matters in practice:
 
 ## Not yet enabled
 
-Two resources are written but commented out of their kustomizations because I
-could not verify the values against the cluster:
-
-- **`br-vmdata` NNCP** (`components/config/nmstate/overlays/hub/`) — targets
-  `ens161`, a spare down Trunk NIC. Interface names were only checked on cnv-1.
-  Pointing this at the wrong NIC will cut a node off the network.
 - **MetalLB address pool** (`components/config/metallb/overlays/hub/`) —
   `192.168.4.200-230` avoids the known VIPs and node addresses but has not been
-  checked against the router's DHCP scope.
+  checked against the router's DHCP scope. Commented out of the overlay's
+  kustomization until confirmed (`homelab-2026-4pq.11`).
+- **External Secrets** — manifests are complete (`onepasswordSDK` provider
+  against the `eso` vault) but not yet referenced by either ApplicationSet, and
+  the token secret must be created by hand. See
+  [its README](../../components/config/external-secrets/README.md)
+  (`homelab-2026-4pq.5`).
+
+The `br-vmdata` NNCP is now enabled: an OVS bridge on `ens224` with an OVN
+`bridge-mappings` entry exposing localnet `physnet-vmdata`, which is the name
+to reference as `physicalNetworkName` from a CUDN or NAD.
 
 ## Follow-on work
 
