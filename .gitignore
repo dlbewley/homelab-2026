@@ -5,4 +5,4 @@
 .beads-credential-key
 .beads/proxieddb/
 *.iso
-bm-hub-nics.yaml
+.bak/
