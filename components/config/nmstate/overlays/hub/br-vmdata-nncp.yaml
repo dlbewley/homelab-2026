@@ -51,11 +51,10 @@ spec:
         ipv6:
           enabled: false
         bridge:
+          allow-extra-patch-ports: true
           options:
-            allow-extra-patch-ports: true
             mcast-snooping-enable: true
-            stp:
-              enabled: false
+            stp: false
           port:
             - name: ens224
     ovn:
