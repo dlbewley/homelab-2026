@@ -1,0 +1,32 @@
+---
+# Claims local block devices on storage nodes and publishes them as PVs under
+# the 'local-block' StorageClass, which ODF then consumes as OSDs.
+#
+# Node selection is by the ODF label applied in components/config/node-labels,
+# never by hostname, so this base stays cluster-agnostic. Disk size bounds are
+# hardware-specific and belong in an overlay.
+apiVersion: local.storage.openshift.io/v1alpha1
+kind: LocalVolumeSet
+metadata:
+  name: local-block
+  namespace: openshift-local-storage
+spec:
+  nodeSelector:
+    nodeSelectorTerms:
+      - matchExpressions:
+          - key: cluster.ocs.openshift.io/openshift-storage
+            operator: In
+            values:
+              - ""
+  tolerations:
+    - key: node.ocs.openshift.io/storage
+      operator: Exists
+      effect: NoSchedule
+  storageClassName: local-block
+  volumeMode: Block
+  maxDeviceCount: 1
+  deviceInclusionSpec:
+    deviceTypes:
+      - disk
+    deviceMechanicalProperties:
+      - NonRotational

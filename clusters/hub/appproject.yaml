@@ -1,0 +1,28 @@
+---
+# One AppProject per cluster. Everything this cluster's GitOps creates belongs
+# to it, which gives you a single blast-radius boundary and a tidy grouping in
+# the ArgoCD UI. Using this instead of `default` also means tightening the rules
+# later is a one-file change.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: hub
+  namespace: openshift-gitops
+spec:
+  description: Day-2 configuration of the 'hub' cluster
+  sourceRepos:
+    - https://github.com/dlbewley/homelab-2026.git
+    # Components may pull upstream kustomize bases by URL. Those are fetched by
+    # the repo-server rather than declared as Application sources, so they do
+    # not need to be listed — but add any repo you point an Application at.
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: '*'
+  # This project configures the cluster itself: CRDs, Namespaces, Nodes,
+  # ClusterRoleBindings, NMState, StorageCluster, HyperConverged.
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'

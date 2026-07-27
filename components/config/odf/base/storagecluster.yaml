@@ -1,0 +1,41 @@
+---
+# Consumes the 'local-block' PVs created by the LocalVolumeSet.
+#
+# Sizing lives in the overlay. This base only describes shape: one device set,
+# 3 replicas, non-portable OSDs (a local disk cannot follow a pod to another
+# node), flexible scaling so failure domain is host rather than rack.
+apiVersion: ocs.openshift.io/v1
+kind: StorageCluster
+metadata:
+  name: ocs-storagecluster
+  namespace: openshift-storage
+spec:
+  flexibleScaling: true
+  monDataDirHostPath: /var/lib/rook
+  arbiter: {}
+  encryption:
+    kms: {}
+  externalStorage: {}
+  managedResources:
+    cephBlockPools: {}
+    cephConfig: {}
+    cephFilesystems: {}
+    cephObjectStoreUsers: {}
+    cephObjectStores: {}
+  multiCloudGateway:
+    reconcileStrategy: manage
+  storageDeviceSets:
+    - name: ocs-deviceset
+      count: 1
+      replica: 3
+      portable: false
+      placement: {}
+      dataPVCTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          volumeMode: Block
+          storageClassName: local-block
+          resources:
+            requests:
+              storage: "1Ti"

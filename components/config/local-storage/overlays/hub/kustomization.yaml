@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# store-1, store-2 and store-3 each present exactly one 1TiB non-rotational
+# disk as sdb (verified 2026-07-27 via `oc debug node/store-N -- lsblk`).
+# Bounding the size keeps the 150GiB root disk out of the set even if its
+# rotational flag is ever reported differently.
+patches:
+  - target:
+      kind: LocalVolumeSet
+      name: local-block
+    patch: |-
+      - op: add
+        path: /spec/deviceInclusionSpec/minSize
+        value: 1Ti
+      - op: add
+        path: /spec/deviceInclusionSpec/maxSize
+        value: 1Ti

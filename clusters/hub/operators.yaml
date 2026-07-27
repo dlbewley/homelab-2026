@@ -1,0 +1,72 @@
+---
+# Which operators the 'hub' cluster gets.
+#
+# Adding an operator to this cluster is one element below. Removing one is
+# deleting that element — the generated Application goes away and, because
+# prune is on for this layer, so do its Subscription/OperatorGroup/Namespace.
+#
+# Every element points at THIS repo. If a component wants upstream content
+# (redhat-cop/gitops-catalog, for example) it pulls it in as a remote base from
+# inside components/olm/<name>/base/kustomization.yaml. Keeping one repoURL here
+# means a fork is a single edit per file rather than one per component.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: hub-operators
+  namespace: openshift-gitops
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - list:
+        elements:
+          - name: nmstate
+            namespace: openshift-nmstate
+            path: components/olm/nmstate/base
+          - name: metallb
+            namespace: metallb-system
+            path: components/olm/metallb/base
+          - name: local-storage
+            namespace: openshift-local-storage
+            path: components/olm/local-storage/base
+          - name: odf
+            namespace: openshift-storage
+            path: components/olm/odf/base
+          - name: virtualization
+            namespace: openshift-cnv
+            path: components/olm/virtualization/base
+          # Not yet enabled — see homelab-2026-4pq.5 for the 1Password wiring.
+          # - name: external-secrets
+          #   namespace: openshift-external-secrets-operator
+          #   path: components/olm/external-secrets/base
+  template:
+    metadata:
+      name: 'hub-olm-{{ .name }}'
+      labels:
+        homelab.bewley.net/cluster: hub
+        homelab.bewley.net/layer: olm
+        homelab.bewley.net/component: '{{ .name }}'
+    spec:
+      project: hub
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ .namespace }}'
+      source:
+        repoURL: https://github.com/dlbewley/homelab-2026.git
+        targetRevision: main
+        path: '{{ .path }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          # The component declares its own Namespace so it can carry the
+          # cluster-monitoring label; do not let ArgoCD create a bare one.
+          - CreateNamespace=false
+        retry:
+          limit: 20
+          backoff:
+            duration: 15s
+            factor: 2
+            maxDuration: 5m

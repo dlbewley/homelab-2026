@@ -1,0 +1,64 @@
+---
+# Humans who administer the cluster. The default openshift-gitops ArgoCD
+# instance already maps this group to the ArgoCD `admin` role:
+#   oc get -n openshift-gitops argocd/openshift-gitops -o jsonpath='{.spec.rbac}'
+apiVersion: user.openshift.io/v1
+kind: Group
+metadata:
+  name: cluster-admins
+  annotations:
+    openshift.io/description: >-
+      Cluster administrators. Also grants admin in the ArgoCD console.
+users: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  # NOT named "cluster-admins": OpenShift ships a built-in ClusterRoleBinding by
+  # that exact name, bound to the system:cluster-admins group and the
+  # system:admin user. Reusing the name replaces those subjects.
+  name: homelab-cluster-admins
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: cluster-admins
+---
+# The ArgoCD application-controller manages cluster-scoped CRs (NMState,
+# NodeNetworkConfigurationPolicy, StorageCluster, HyperConverged, ...). Without
+# this it fails with errors like:
+#   nmstates.nmstate.io "nmstate" is forbidden: User
+#   "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller"
+#   cannot patch resource "nmstates" in API group "nmstate.io" at the cluster scope
+#
+# The GitOps operator grants this by default only for namespaces listed in
+# ARGOCD_CLUSTER_CONFIG_NAMESPACES. Binding it explicitly is idempotent and
+# removes the guesswork.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openshift-gitops-argocd-application-controller-cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: openshift-gitops-argocd-application-controller
+    namespace: openshift-gitops
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openshift-gitops-argocd-server-cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: openshift-gitops-argocd-server
+    namespace: openshift-gitops

@@ -1,0 +1,39 @@
+---
+# Linux bridge on the spare 'Trunk' NIC of each virtualization node, so VMs can
+# attach to lab VLANs directly via NetworkAttachmentDefinitions.
+#
+# Verified on cnv-1 (2026-07-27) with `ip -brief link`:
+#   ens192  UP    00:50:56:b4:ae:17  <- adapter 1, lab-192-168-4-0-b24, br-ex uplink. DO NOT TOUCH.
+#   ens224  UP    00:50:56:b4:3e:b1  <- adapter 2, Trunk, holds 192.168.1.33
+#   ens256  DOWN  00:50:56:b4:1e:ed  <- adapter 3, Trunk, unused
+#   ens161  DOWN  00:50:56:b4:5a:88  <- adapter 4, Trunk, unused
+#
+# ens161 is chosen because it is down and unaddressed. Two caveats before you
+# enable this (it is commented out of kustomization.yaml until you confirm):
+#   1. Interface names were only checked on cnv-1. Confirm cnv-2 and cnv-4 use
+#      the same names, or split this into one NNCP per node.
+#   2. Grabbing the wrong NIC will cut the node off the network. Never point
+#      this at ens192.
+apiVersion: nmstate.io/v1
+kind: NodeNetworkConfigurationPolicy
+metadata:
+  name: br-vmdata
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/virtualization: ""
+  desiredState:
+    interfaces:
+      - name: br-vmdata
+        description: Bridge to the lab Trunk network for VM traffic
+        type: linux-bridge
+        state: up
+        ipv4:
+          enabled: false
+        ipv6:
+          enabled: false
+        bridge:
+          options:
+            stp:
+              enabled: false
+          port:
+            - name: ens161

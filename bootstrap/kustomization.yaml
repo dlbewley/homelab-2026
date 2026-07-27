@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Day 1. Applied by hand with `oc apply -k bootstrap/`.
+# Everything after this point is driven by ArgoCD from clusters/<name>/.
+resources:
+- openshift-gitops.yaml
+- rbac.yaml
