@@ -80,4 +80,4 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | local-storage | ✅ | ✅ | Bounded to the 1TiB `sdb` on each store node |
 | odf | ✅ | ✅ | 3 × 1TiB OSDs, `flexibleScaling`; sets the cluster and virt default StorageClasses — see [its README](config/odf/README.md) |
 | virtualization | ✅ | ✅ | Workloads pinned to `node-role.kubernetes.io/virtualization` |
-| external-secrets | ✅ | ✅ | `onepasswordSDK` provider against the `eso` vault. Manifests complete but not yet referenced by an ApplicationSet, and the token secret is a manual step — see [its README](config/external-secrets/README.md) |
+| external-secrets | ✅ | ✅ | `onepasswordSDK` provider against the `eso` vault. The service-account token secret is a deliberate manual step — see [its README](config/external-secrets/README.md) |

@@ -87,23 +87,39 @@ system to bootstrap for the sake of one value that changes rarely. One manual
 `oc create secret` per cluster build is the smaller cost. Revisit if the number
 of clusters grows.
 
-## Not yet wired in
+## What to expect on first sync
 
-The manifests are complete but no ApplicationSet references them, so nothing
-deploys yet. To enable, uncomment the `external-secrets` element in
-[clusters/hub/operators.yaml](../../../clusters/hub/operators.yaml) and add a
-matching one to [clusters/hub/config.yaml](../../../clusters/hub/config.yaml):
+Both layers are wired into the hub cluster, as `hub-olm-external-secrets` and
+`hub-cfg-external-secrets`.
 
-```yaml
-          - name: external-secrets
-            namespace: external-secrets-operator
-            path: components/config/external-secrets/overlays/hub
+1. `hub-olm-external-secrets` installs the operator into
+   `external-secrets-operator`.
+2. `hub-cfg-external-secrets` will **fail its first attempts** with
+   `no matches for kind "ExternalSecretsConfig"` / `"ClusterSecretStore"` until
+   the CSV registers those CRDs. Both come from the same CSV, so they appear
+   together and ordinary retry/backoff converges — this is not the kind of
+   deadlock hit in [nmstate](../nmstate), where one CR had to be applied before
+   the other's CRD existed.
+3. `ExternalSecretsConfig` then creates the `external-secrets` namespace and
+   the operand.
+4. The `1password-sdk` ClusterSecretStore sits `Ready: False` until you create
+   the token secret above. That is expected, not a fault.
+
+If the `external-secrets` namespace does not appear once the operand is
+running, create it before the `oc create secret` step — the operator is
+expected to create it, but that has not been verified on this cluster:
+
+```bash
+oc get ns external-secrets || oc create ns external-secrets
 ```
 
-Expect `hub-cfg-external-secrets` to fail its first attempts with
-`no matches for kind "ClusterSecretStore"` until the operator installs those
-CRDs; it retries and converges. The store will then sit `Ready: False` until
-the token secret above exists.
+Verify the whole chain:
+
+```bash
+oc get csv -n external-secrets-operator
+oc get externalsecretsconfig cluster
+oc get clustersecretstore 1password-sdk
+```
 
 Tracked as `homelab-2026-4pq.5`.
 

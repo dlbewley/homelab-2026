@@ -44,6 +44,15 @@ spec:
           - name: virtualization
             namespace: openshift-cnv
             path: components/config/virtualization/base
+          # ExternalSecretsConfig creates the `external-secrets` operand
+          # namespace; the ClusterSecretStore stays Ready=False until the
+          # service-account token secret is created there by hand. That step is
+          # deliberate — it is the credential that unlocks every other
+          # credential, so it cannot be committed or fetched by External
+          # Secrets itself. See components/config/external-secrets/README.md.
+          - name: external-secrets
+            namespace: external-secrets-operator
+            path: components/config/external-secrets/overlays/hub
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'

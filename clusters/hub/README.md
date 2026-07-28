@@ -40,12 +40,14 @@ hub-root                       ← this directory
 ├── hub-olm-local-storage
 ├── hub-olm-odf
 ├── hub-olm-virtualization
+├── hub-olm-external-secrets
 ├── hub-cfg-node-labels        ← components/config/*
 ├── hub-cfg-nmstate
 ├── hub-cfg-metallb
 ├── hub-cfg-local-storage
 ├── hub-cfg-odf
-└── hub-cfg-virtualization
+├── hub-cfg-virtualization
+└── hub-cfg-external-secrets
 ```
 
 ## Expect churn on first sync
@@ -69,11 +71,21 @@ Convergence order that matters in practice:
   `192.168.4.200-230` avoids the known VIPs and node addresses but has not been
   checked against the router's DHCP scope. Commented out of the overlay's
   kustomization until confirmed (`homelab-2026-4pq.11`).
-- **External Secrets** — manifests are complete (`onepasswordSDK` provider
-  against the `eso` vault) but not yet referenced by either ApplicationSet, and
-  the token secret must be created by hand. See
-  [its README](../../components/config/external-secrets/README.md)
-  (`homelab-2026-4pq.5`).
+## Manual step after sync
+
+**External Secrets** is deployed, but its `1password-sdk` ClusterSecretStore
+stays `Ready: False` until the service-account token is created by hand — it is
+the credential that unlocks every other credential, so it cannot be committed
+or fetched by External Secrets itself:
+
+```bash
+oc create secret generic onepassword-connect-token \
+  --namespace external-secrets \
+  --from-literal=token="$(op read 'op://development/eso-service-account/token')"
+```
+
+See [its README](../../components/config/external-secrets/README.md)
+(`homelab-2026-4pq.5`).
 
 The `br-vmdata` NNCP is now enabled: an OVS bridge on `ens224` with an OVN
 `bridge-mappings` entry exposing localnet `physnet-vmdata`, which is the name
@@ -81,5 +93,5 @@ to reference as `physicalNetworkName` from a CUDN or NAD.
 
 ## Follow-on work
 
-`bd show homelab-2026-4pq` — image registry on CephFS, default StorageClass,
-monitoring PVs, OAuth/RBAC, External Secrets + 1Password, RHACM.
+`bd show homelab-2026-4pq` — image registry on CephFS, monitoring PVs,
+OAuth/RBAC, RHACM, and a second cluster to prove the layout.
