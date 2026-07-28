@@ -36,12 +36,13 @@ spec:
           - name: virtualization
             namespace: openshift-cnv
             path: components/olm/virtualization/base
-          # Not yet enabled. Enabling this also means adding a matching element
-          # to config.yaml and creating the service-account token secret by
-          # hand — see components/config/external-secrets/README.md.
-          # - name: external-secrets
-          #   namespace: external-secrets-operator
-          #   path: components/olm/external-secrets/base
+          # AllNamespaces-only, so its OperatorGroup uses `spec: {}` rather than
+          # targetNamespaces. The operator runs in external-secrets-operator;
+          # its operand lands in external-secrets. See
+          # components/config/external-secrets/README.md.
+          - name: external-secrets
+            namespace: external-secrets-operator
+            path: components/olm/external-secrets/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'
