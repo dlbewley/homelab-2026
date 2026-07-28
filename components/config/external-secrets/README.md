@@ -105,13 +105,9 @@ Both layers are wired into the hub cluster, as `hub-olm-external-secrets` and
 4. The `1password-sdk` ClusterSecretStore sits `Ready: False` until you create
    the token secret above. That is expected, not a fault.
 
-If the `external-secrets` namespace does not appear once the operand is
-running, create it before the `oc create secret` step — the operator is
-expected to create it, but that has not been verified on this cluster:
-
-```bash
-oc get ns external-secrets || oc create ns external-secrets
-```
+The operator does create the `external-secrets` namespace itself — confirmed on
+hub 2026-07-28, where it appeared alongside the operand without intervention.
+Nothing to do by hand except the token secret.
 
 Verify the whole chain:
 
