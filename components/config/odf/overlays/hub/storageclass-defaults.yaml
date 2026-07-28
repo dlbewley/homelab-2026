@@ -1,0 +1,47 @@
+---
+# Designates the cluster-wide default StorageClass and the default StorageClass
+# for OpenShift Virtualization.
+#
+# These StorageClasses are created and owned by ODF, not by this repo. Each
+# object below declares ONLY the annotation we want to own; server-side apply
+# merges it into the operator's object and leaves everything else alone. That
+# is why no `provisioner` is needed here even though the field is required —
+# SSA validates the merged result, and ODF has already supplied it.
+#
+# Ordering: sync-wave 20 puts these after the StorageCluster in ../../base
+# (wave 0). Until ODF has actually created the classes, the apply fails with
+#   The StorageClass "..." is invalid: provisioner: Required value
+# and ordinary retry/backoff picks it up once they exist. Note this differs
+# from the NNCP case in components/config/nmstate: there the *kind* was missing
+# and SkipDryRunOnMissingResource was needed. Here the kind exists and only the
+# *object* is absent, so that option would do nothing — plain retry is what
+# converges.
+#
+# Prune=false,Delete=false is load-bearing. Without it ArgoCD treats these as
+# resources it owns, and removing this file from git — or an errant prune —
+# would DELETE ODF's StorageClasses and orphan every PV bound to them. Same
+# reasoning as the Node objects in components/config/node-labels.
+#
+# Docs:
+# https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html/virtualization/storage#virt-configuring-default-and-virt-default-storage-class_virt-automatic-bootsource-updates
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ocs-storagecluster-ceph-rbd
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+    argocd.argoproj.io/sync-wave: "20"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+# The virt default is a separate annotation with its own key. A StorageClass may
+# hold both, but here they are deliberately split: general workloads land on
+# ceph-rbd, while VM disks land on the -virtualization class, which ODF tunes
+# for RWX block and live migration.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ocs-storagecluster-ceph-rbd-virtualization
+  annotations:
+    storageclass.kubevirt.io/is-default-virt-class: "true"
+    argocd.argoproj.io/sync-wave: "20"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false

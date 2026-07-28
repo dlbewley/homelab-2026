@@ -3,6 +3,9 @@ kind: Kustomization
 
 resources:
   - ../../base
+  # Which class is default is a per-cluster decision, so it lives here rather
+  # than in base.
+  - storageclass-defaults.yaml
 
 # hub store nodes are 16 vCPU / 34 GB (see commit cf40bc6), which comfortably
 # covers the ODF resource requests below. Trim these if you shrink the nodes.
