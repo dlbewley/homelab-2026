@@ -1,6 +1,6 @@
 ---
-# OVS bridge on the secondary 'Trunk' NIC of each virtualization node, so VMs can
-# attach to VLANs directly using Localnet ClusterUserDefinedNetwork and NetworkAttachmentDefinitions.
+# Linux bridge on the spare 'Trunk' NIC of each virtualization node, so VMs can
+# attach to lab VLANs directly via NetworkAttachmentDefinitions.
 #
 # Verified on cnv-1 (2026-07-27) with `ip -brief link`:
 #   ens192  UP    00:50:56:b4:ae:17  <- adapter 1, lab-192-168-4-0-b24, br-ex uplink. DO NOT TOUCH.

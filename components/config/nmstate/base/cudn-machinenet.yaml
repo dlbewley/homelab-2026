@@ -1,0 +1,21 @@
+apiVersion: k8s.ovn.org/v1
+kind: ClusterUserDefinedNetwork
+metadata:
+  name: machinenet
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  namespaceSelector:
+    matchLabels:
+      # Apply this label to Namespaces permitted to attach to the cluster machine network
+      network/machine: ""
+  network:
+    topology: Localnet
+    localnet:
+      role: Secondary
+      physicalNetworkName: physnet
+      # set this to match the MTU of the physical network
+      mtu: 1500
+      # use DHCP from the datacenter
+      ipam:
+        mode: Disabled
