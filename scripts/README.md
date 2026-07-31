@@ -1,28 +1,52 @@
-# VM provisioning scripts
+# scripts
 
-`govc`-based scripts for building vSphere VMs that are later installed as if they
-were bare metal (e.g. an OpenShift cluster). They only create hardware — no guest
-OS or cluster install.
+Tooling for this repo, in three groups. Only the first talks to vSphere; only
+the second needs a cluster; the third needs neither.
+
+| Script | Group | Needs |
+|---|---|---|
+| [`create-vm.sh`](create-vm.sh) | day 0 — provision | `govc` + vSphere |
+| [`create-cluster-vms.sh`](create-cluster-vms.sh) | day 0 — provision | `govc` + vSphere |
+| [`attach-iso-boot.sh`](attach-iso-boot.sh) | day 0 — provision | `govc` + vSphere |
+| [`collect-nics.sh`](collect-nics.sh) | day 0 — inventory | `govc` + vSphere + `jq` |
+| [`verify-channels.sh`](verify-channels.sh) | day 2 — cluster validation | logged-in `oc` + `jq` |
+| [`validate.sh`](validate.sh) | repo validation | `kustomize` (or `oc`/`kubectl`) |
+
+That last distinction decides what CI can enforce. `validate.sh` needs nothing
+but the repo, so [CI runs it on every PR](../.github/workflows/validate.yaml).
+`verify-channels.sh` needs a live catalog and stays a manual gate — GitHub
+runners have no route to the homelab cluster.
+
+---
+
+# Day 0 — provisioning
+
+`govc`-based scripts for building vSphere VMs that are later installed as if
+they were bare metal. They only create hardware — no guest OS or cluster
+install.
 
 ## Requirements
 
 - [`govc`](https://github.com/vmware/govmomi/tree/main/govc)
 - `GOVC_URL`, `GOVC_USERNAME`, `GOVC_PASSWORD` exported in the environment
-  (see `../setup_env.sh`)
+  (see [`../setup_env.sh`](../setup_env.sh))
+- `jq`, for `collect-nics.sh`
 
-## Scripts
+Every script here takes `--dry-run` (or `-o -`). Use it first.
 
-### `create-vm.sh` — single-VM primitive
+## `create-vm.sh` — single-VM primitive
 
-Creates one VM, modeled on the `hub-4k77l-*` nodes: RHEL9/EFI, pvscsi, vmxnet3,
-an OS disk on a **shared** datastore and an optional data disk on a **unique**
-per-VM datastore. Everything (CPU, memory, NICs, firmware, disks, datastores,
-nested virtualization) is a flag so other VM types reuse it.
+Creates one VM: RHEL9/EFI, pvscsi, vmxnet3, an OS disk on a **shared** datastore
+and an optional data disk on a **unique** per-VM datastore. Everything (CPU,
+memory, NICs, firmware, disks, datastores, nested virtualization) is a flag, so
+other VM types reuse it.
 
 ```bash
 # store node: OS on shared VMData, 1 TB OSD disk on the EVO-1 SSD
 ./create-vm.sh --name bm-store-1 --primary-ds VMData --secondary-ds EVO-1
+```
 
+```bash
 # nested-virt (CNV) node: expose VT-x to the guest, 16c/48G, two NICs, HW v19
 ./create-vm.sh --name bm-cnv-1 --cpu 16 --memory 49152 \
     --nested --vpmc --cpu-hot-add --hw-version 19 \
@@ -41,11 +65,11 @@ Run `./create-vm.sh --help` for the full flag list. Key flags:
 | `--hw-version` / `--firmware` / `--guest-id` | VM hardware version, firmware, guest id |
 | `--power-on` / `--dry-run` | power on after create / print commands only |
 
-### `create-cluster-vms.sh` — cluster wrapper
+## `create-cluster-vms.sh` — cluster wrapper
 
-Provisions a full set of nodes by calling `create-vm.sh` per VM. Counts,
-name prefixes, datastores, sizes and per-role networks live in a `CONFIG`
-block at the top of the file.
+Provisions a full set of nodes by calling `create-vm.sh` per VM. Counts, name
+prefixes, datastores, sizes and per-role networks live in a `CONFIG` block at
+the top of the file.
 
 | Role | Prefix | Qty | CPU | RAM | NICs | Extra |
 |------|--------|-----|-----|-----|------|-------|
@@ -58,17 +82,147 @@ Common to all: 150 GB root disk on the shared datastore, RHEL9 guest, HW version
 
 ```bash
 ./create-cluster-vms.sh --dry-run       # print every govc command, change nothing
-./create-cluster-vms.sh                  # create all VMs (powered off)
-./create-cluster-vms.sh --power-on       # create and power on
-ONLY=store ./create-cluster-vms.sh       # limit to one role: ctrl | cnv | store
 ```
+
+```bash
+ONLY=store ./create-cluster-vms.sh      # limit to one role: ctrl | cnv | store
+```
+
+`./create-cluster-vms.sh` creates all VMs powered off; add `--power-on` to start
+them.
 
 **Networking model:** every node's first NIC is on `PRIMARY_NET`
 (`lab-192-168-4-0-b24`), the network all nodes share; any additional NICs are on
 `TRUNK_NET` (`Trunk`). Per-role NIC counts are `CTRL_NICS` / `CNV_NICS` /
 `STORE_NICS`. Override the networks via the `PRIMARY_NET` / `TRUNK_NET` env vars.
 
-**Review before a real run:**
+**Review before a real run:** `FOLDER` defaults to `/Garden/vm`; set it to a
+per-cluster folder if desired. It must already exist — `govc` will not create it.
 
-- **Folder** — defaults to `/Garden/vm`; set `FOLDER` to a per-cluster folder if
-  desired (it must already exist — `govc` will not create it).
+## `attach-iso-boot.sh` — boot VMs from a discovery ISO
+
+Attaches an ISO (typically the assisted-installer `discovery.iso`) to a set of
+VMs and boots them from it. Per VM it ensures a CD-ROM exists, inserts the ISO
+and marks it connect-at-power-on, sets the EFI boot order to `cdrom,disk`, then
+powers on — or resets, if already running.
+
+Idempotent: re-running reuses the existing CD-ROM and just re-inserts and
+reboots.
+
+```bash
+./attach-iso-boot.sh --dry-run                    # print govc commands, change nothing
+```
+
+```bash
+./attach-iso-boot.sh                              # every VM in the default folder
+```
+
+```bash
+./attach-iso-boot.sh bm-ctrl-1 bm-ctrl-2          # only these VMs
+```
+
+Defaults, each overridable by flag or env: ISO `ISO/discovery.iso` on datastore
+`VMData`, folder `/Garden/vm/bm-hub`, controller `ide-200`, boot order
+`cdrom,disk`. `--no-power` attaches without powering on.
+
+## `collect-nics.sh` — NIC and MAC inventory
+
+Writes each VM's NICs — adapter, network, MAC, and IP where known — to YAML.
+MAC and network come from VM hardware so they are always present; the IP comes
+from VMware Tools and is absent unless the guest is running Tools and has an
+IPv4 address. A missing IP is normal, not an error.
+
+```bash
+./collect-nics.sh -o -                            # YAML to stdout
+```
+
+```bash
+./collect-nics.sh --folder /Garden/vm/bm-hub -o bm-hub-nics.yaml
+```
+
+This is where the NIC facts in
+[`manifests/config/nmstate/overlays/hub/`](../manifests/config/nmstate/overlays/hub/)
+come from — which physical adapter is the `br-ex` uplink and which are spare
+Trunk NICs. Regenerate it before changing a `NodeNetworkConfigurationPolicy`:
+pointing a bridge at the wrong NIC will cut the node off the network.
+
+Output is not committed. Generate it when you need it.
+
+---
+
+# Day 2 — cluster validation
+
+## `verify-channels.sh`
+
+Checks every `manifests/olm/*` component against the connected cluster's
+catalog, in two passes:
+
+1. the pinned channel in `subscription.yaml` vs the catalog's default channel
+2. the OperatorGroup shape vs the install modes the operator supports **on the
+   channel that `subscription.yaml` pins**
+
+```bash
+./verify-channels.sh
+```
+
+Pass 2 exists because an OperatorGroup asking for a mode the operator does not
+support fails at resolution time with a message that names the mode but not the
+fix:
+
+```
+OwnNamespace InstallModeType not supported, cannot configure to watch own namespace
+```
+
+`targetNamespaces` requests OwnNamespace — or SingleNamespace, if it targets a
+namespace other than its own; an empty `spec: {}` requests AllNamespaces.
+
+Install modes are read from the **pinned** channel, not the default and not the
+first listed. Channels genuinely disagree — `kubearmor-operator-certified`
+offers `AllNamespaces` on `alpha` but only `OwnNamespace,SingleNamespace` on
+`stable` — so reading the wrong one can report a false `ok`.
+
+Exit 1 on any problem. Statuses: `DRIFT`, `UNSUPPORTED`, `CHANNEL NOT FOUND`,
+`NOT IN CATALOG`. Re-run after a cluster upgrade and whenever a component is
+added.
+
+Needs a logged-in `oc` and `jq`.
+
+---
+
+# Repo validation
+
+## `validate.sh`
+
+Everything that can be checked without a cluster. [CI runs this same
+script](../.github/workflows/validate.yaml), so a green local run means a green
+CI run.
+
+```bash
+./validate.sh
+```
+
+1. **every directory containing a `kustomization.yaml` builds**
+2. **no manifest is present-but-unreferenced**
+
+Check 2 exists because kustomize renders an unreferenced file as *nothing at
+all* and exits 0. A manifest you believe is deployed but silently is not looks
+identical to a healthy one in ArgoCD.
+
+Deliberate exceptions live in [`allowed-orphans.txt`](allowed-orphans.txt), one
+path per line with a reason and the issue that retires it. An `ORPHAN` is
+therefore always one of three things: a file to wire into its
+`kustomization.yaml`, a file to delete, or an exception to record.
+
+Uses `kustomize` if installed, else `oc`, else `kubectl`. CI pins kustomize so
+an upstream release cannot change what this repo renders without a reviewable
+commit.
+
+### What it does not cover
+
+Server-side apply dry-run, which is what catches CRD schema errors — a field
+valid in one operator release and removed in the next. It needs a live cluster,
+so run it by hand before trusting a change to operator CRs:
+
+```bash
+oc kustomize manifests/config/odf/overlays/hub | oc apply --server-side --dry-run=server -f -
+```
