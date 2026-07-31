@@ -1,0 +1,17 @@
+---
+# targetNamespaces requests OwnNamespace, which this operator supports:
+#   oc get packagemanifest openshift-cert-manager-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.channels[0].currentCSVDesc.installModes}'
+#   -> OwnNamespace, SingleNamespace, AllNamespaces
+#
+# scripts/verify-channels.sh checks this against the channel pinned below.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cert-manager-operatorgroup
+  namespace: cert-manager-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  targetNamespaces:
+    - cert-manager-operator

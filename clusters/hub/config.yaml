@@ -53,6 +53,11 @@ spec:
           - name: external-secrets
             namespace: external-secrets-operator
             path: manifests/config/external-secrets/overlays/hub
+          # Operator in cert-manager-operator, operand in cert-manager.
+          # Wires the router at sync wave 20; see the component README.
+          - name: cert-manager
+            namespace: cert-manager-operator
+            path: manifests/config/cert-manager/overlays/hub
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'

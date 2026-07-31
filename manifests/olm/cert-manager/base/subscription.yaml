@@ -1,0 +1,19 @@
+---
+# Channel verified against the live hub cluster on 2026-07-31:
+#   oc get packagemanifest openshift-cert-manager-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> stable-v1  (cert-manager-operator.v1.20.0)
+# Re-check with scripts/verify-channels.sh after a cluster upgrade.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: openshift-cert-manager-operator
+  namespace: cert-manager-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: openshift-cert-manager-operator
+  channel: stable-v1
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - wildcard-apps-certificate.yaml
+  # Read the warning at the top of this file: it triggers a router rollout, and
+  # browsers warn until the homelab CA is trusted. Safe to sync in this order
+  # because ArgoCD has a built-in health check for cert-manager Certificates and
+  # will not start wave 20 until the wave 10 Certificate reports Ready — so the
+  # router is never pointed at a secret that does not exist yet.
+  - ingresscontroller.yaml
