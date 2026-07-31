@@ -2,14 +2,8 @@
 # Linux bridge on the spare 'Trunk' NIC of each virtualization node, so VMs can
 # attach to lab VLANs directly via NetworkAttachmentDefinitions.
 #
-# Verified on cnv-1 (2026-07-27) with `ip -brief link`:
-#   ens192  UP    00:50:56:b4:ae:17  <- adapter 1, lab-192-168-4-0-b24, br-ex uplink. DO NOT TOUCH.
-#   ens224  UP    00:50:56:b4:3e:b1  <- adapter 2, Trunk, holds 192.168.1.33
-#   ens256  DOWN  00:50:56:b4:1e:ed  <- adapter 3, Trunk, unused
-#   ens161  DOWN  00:50:56:b4:5a:88  <- adapter 4, Trunk, unused
-#
 #   ! Selecting the wrong NIC will cut the node off the network.
-#   ! Never point this at ens192 !
+#   ! Never point this the ens192 uplink underlying br-ex !
 #
 # ORDERING: the NodeNetworkConfigurationPolicy CRD does not exist until the
 # NMState CR in ../../base has been reconciled and the handler has registered
@@ -52,6 +46,7 @@ spec:
             mcast-snooping-enable: true
             stp: false
           port:
+           # Secondary 'Trunk' NIC of each virtualization node
             - name: ens224
     ovn:
       bridge-mappings:
