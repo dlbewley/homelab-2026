@@ -24,13 +24,13 @@ Then:
    references, Application/ApplicationSet names, `homelab.bewley.net/cluster`
    labels, generated app name prefixes).
 2. Trim the element lists to what `foo` actually needs.
-3. Add `components/config/<name>/overlays/foo/` for any component whose values
+3. Add `manifests/config/<name>/overlays/foo/` for any component whose values
    differ, and point the element's `path` at it. Where nothing differs, point
    at `base` — see the `virtualization` element in `hub/config.yaml`.
 4. `oc kustomize clusters/foo` to confirm it builds.
 5. Against the new cluster: `oc apply -k bootstrap/`, then `oc apply -k clusters/foo`.
 
-If step 3 makes you want to edit something under `components/*/base/`, that is
+If step 3 makes you want to edit something under `manifests/*/base/`, that is
 the signal a cluster-specific value leaked into a shared base — move it to an
 overlay instead.
 

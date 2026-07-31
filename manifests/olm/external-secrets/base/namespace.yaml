@@ -8,7 +8,7 @@
 # This is where the OPERATOR runs. The operand — the external-secrets
 # controller, and the onepassword-connect-token secret it reads — lives in the
 # separate `external-secrets` namespace created by ExternalSecretsConfig.
-# See components/config/external-secrets/README.md.
+# See manifests/config/external-secrets/README.md.
 apiVersion: v1
 kind: Namespace
 metadata:

@@ -9,4 +9,4 @@
 
 # Pending confirmation that 192.168.4.200-230 does not collide with the DHCP
 # scope on the lab network. Retired by homelab-2026-4pq.11.
-components/config/metallb/overlays/hub/addresspool.yaml
+manifests/config/metallb/overlays/hub/addresspool.yaml

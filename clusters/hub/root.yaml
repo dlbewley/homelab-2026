@@ -4,7 +4,7 @@
 # to either ApplicationSet arrives through git.
 #
 # It deliberately manages only clusters/hub/ — the ApplicationSets it contains
-# are what reach into components/.
+# are what reach into manifests/.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

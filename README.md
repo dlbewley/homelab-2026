@@ -6,7 +6,7 @@ Build and configure the Bewley homelab OpenShift clusters.
 |---|---|---|
 | Day 0 — build the cluster | [scripts/](scripts/) | shell + `govc` against vSphere |
 | Day 1 — install GitOps | [bootstrap/](bootstrap/) | `oc apply -k bootstrap/` |
-| Day 2 — configure the cluster | [clusters/](clusters/), [components/](components/) | ArgoCD |
+| Day 2 — configure the cluster | [clusters/](clusters/), [manifests/](manifests/) | ArgoCD |
 
 ## Layout
 
@@ -14,19 +14,21 @@ Build and configure the Bewley homelab OpenShift clusters.
 bootstrap/              Day 1. The only thing applied by hand. GitOps operator + RBAC.
 clusters/<name>/        What one cluster is. AppProject, root Application, and the
                         two ApplicationSets naming which components it gets.
-components/
+manifests/              Reusable building blocks. Plain Kustomizations, not
+                        Kustomize Components — see components/ for that.
   olm/<name>/base/      Install an operator: Namespace + OperatorGroup + Subscription.
   config/<name>/
     base/               The operator's CRs, with nothing cluster-specific in them.
     overlays/<cluster>/ Per-cluster values, patched onto the base.
-scripts/                Day 0 VM provisioning, plus verify-channels.sh.
+components/             Reserved for genuine Kustomize Components. Empty today.
+scripts/                Day 0 VM provisioning, plus repo and cluster validation.
 ```
 
 Two rules keep this multi-cluster:
 
-1. **Nothing under `components/*/base/` names a cluster or a machine.** Anything
+1. **Nothing under `manifests/*/base/` names a cluster or a machine.** Anything
    that varies goes in `overlays/<cluster>/`. Node selection is by label, never
-   by hostname — the one exception is `components/config/node-labels/`, which
+   by hostname — the one exception is `manifests/config/node-labels/`, which
    exists only as an overlay because assigning labels to machines is inherently
    cluster-specific.
 2. **Applications only ever point at this repo.** To use upstream content such

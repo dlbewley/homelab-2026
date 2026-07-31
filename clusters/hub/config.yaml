@@ -28,31 +28,31 @@ spec:
           # select nodes by the label this applies.
           - name: node-labels
             namespace: default
-            path: components/config/node-labels/overlays/hub
+            path: manifests/config/node-labels/overlays/hub
           - name: nmstate
             namespace: openshift-nmstate
-            path: components/config/nmstate/overlays/hub
+            path: manifests/config/nmstate/overlays/hub
           - name: metallb
             namespace: metallb-system
-            path: components/config/metallb/overlays/hub
+            path: manifests/config/metallb/overlays/hub
           - name: local-storage
             namespace: openshift-local-storage
-            path: components/config/local-storage/overlays/hub
+            path: manifests/config/local-storage/overlays/hub
           - name: odf
             namespace: openshift-storage
-            path: components/config/odf/overlays/hub
+            path: manifests/config/odf/overlays/hub
           - name: virtualization
             namespace: openshift-cnv
-            path: components/config/virtualization/base
+            path: manifests/config/virtualization/base
           # ExternalSecretsConfig creates the `external-secrets` operand
           # namespace; the ClusterSecretStore stays Ready=False until the
           # service-account token secret is created there by hand. That step is
           # deliberate — it is the credential that unlocks every other
           # credential, so it cannot be committed or fetched by External
-          # Secrets itself. See components/config/external-secrets/README.md.
+          # Secrets itself. See manifests/config/external-secrets/README.md.
           - name: external-secrets
             namespace: external-secrets-operator
-            path: components/config/external-secrets/overlays/hub
+            path: manifests/config/external-secrets/overlays/hub
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'
@@ -72,7 +72,7 @@ spec:
       syncPolicy:
         automated:
           # Pruning is on for the layer, but individual resources can opt out.
-          # The Node objects in components/config/node-labels carry
+          # The Node objects in manifests/config/node-labels carry
           #   argocd.argoproj.io/sync-options: Prune=false,Delete=false
           # because they predate ArgoCD and must never be deleted by it.
           # (Opting out per resource rather than per Application because

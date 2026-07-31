@@ -19,7 +19,7 @@ spec:
     enableCommonBootImageImport: true
     deployKubeSecondaryDNS: false
   # Confine virt workloads to the nodes labelled in
-  # components/config/node-labels. Drop this block to let VMs run anywhere.
+  # manifests/config/node-labels. Drop this block to let VMs run anywhere.
   workloads:
     nodePlacement:
       nodeSelector:
