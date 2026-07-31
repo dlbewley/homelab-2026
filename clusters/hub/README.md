@@ -11,7 +11,7 @@ The Bewley hub cluster. `apps.hub.lab.bewley.net`, OpenShift 4.22.5, platform
 | store-1..3 | worker → storage | 150G root + **1TiB non-rotational `sdb`** for ODF |
 | cnv-1, cnv-2, cnv-4 | worker → virtualization | 4 NICs: adapter 1 on the lab network is the `br-ex` uplink, adapters 2-4 on Trunk |
 
-`cnv-3` is declared in `components/config/node-labels/overlays/hub/nodes.yaml`
+`cnv-3` is declared in `manifests/config/node-labels/overlays/hub/nodes.yaml`
 but was not joined to the cluster as of 2026-07-27 (the machineset reported 7
 desired / 6 ready). Its Application will report that node as missing until it
 joins; that is expected and does not block the others.
@@ -35,13 +35,13 @@ Applied once by hand. After that `hub-root` self-manages this directory.
 
 ```
 hub-root                       ← this directory
-├── hub-olm-nmstate            ← components/olm/*
+├── hub-olm-nmstate            ← manifests/olm/*
 ├── hub-olm-metallb
 ├── hub-olm-local-storage
 ├── hub-olm-odf
 ├── hub-olm-virtualization
 ├── hub-olm-external-secrets
-├── hub-cfg-node-labels        ← components/config/*
+├── hub-cfg-node-labels        ← manifests/config/*
 ├── hub-cfg-nmstate
 ├── hub-cfg-metallb
 ├── hub-cfg-local-storage
@@ -67,7 +67,7 @@ Convergence order that matters in practice:
 
 ## Not yet enabled
 
-- **MetalLB address pool** (`components/config/metallb/overlays/hub/`) —
+- **MetalLB address pool** (`manifests/config/metallb/overlays/hub/`) —
   `192.168.4.200-230` avoids the known VIPs and node addresses but has not been
   checked against the router's DHCP scope. Commented out of the overlay's
   kustomization until confirmed (`homelab-2026-4pq.11`).
@@ -84,7 +84,7 @@ oc create secret generic onepassword-connect-token \
   --from-literal=token="$(op read 'op://development/eso-service-account/token')"
 ```
 
-See [its README](../../components/config/external-secrets/README.md)
+See [its README](../../manifests/config/external-secrets/README.md)
 (`homelab-2026-4pq.5`).
 
 The `br-vmdata` NNCP is now enabled: an OVS bridge on `ens224` with an OVN

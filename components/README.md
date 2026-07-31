@@ -1,83 +1,81 @@
 # components
 
-Reusable building blocks. Nothing here decides *which* cluster gets *what* —
-that lives in [clusters/](../clusters/).
+**Reserved.** Nothing here yet, deliberately.
 
-## olm/
+This directory is for genuine [Kustomize Components][spec] — `kind: Component`,
+`apiVersion: kustomize.config.k8s.io/v1alpha1`. The building blocks that make up
+this cluster's configuration live in [`manifests/`](../manifests) and are plain
+`kind: Kustomization` files forming base/overlay chains.
 
-Installs an operator. Each `base/` is the same three objects:
+The split exists because "component" is overloaded. Calling the whole tree
+`components/` while none of it contained a Kustomize Component was a needless
+trip hazard, so the name is now reserved for the real feature.
 
-| File | Wave | Why |
+[spec]: https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/component/
+
+## Component vs Kustomization
+
+| | Kustomization | Component |
 |---|---|---|
-| `namespace.yaml` | 0 | Declared here rather than via `CreateNamespace=true` so it can carry `openshift.io/cluster-monitoring` |
-| `operatorgroup.yaml` | 1 | Own-namespace install mode |
-| `subscription.yaml` | 2 | Channel pinned, `installPlanApproval: Automatic` |
+| `kind:` | `Kustomization` | `Component` |
+| referenced by | `resources:` | `components:` |
+| applied | once, deduplicated | once per inclusion |
+| evaluated | with resources | after resources, in listed order |
+| can add resources | yes | yes |
+| can patch resources it does not own | no | **yes** |
 
-The OperatorGroup shape must match what the operator supports. `targetNamespaces`
-requests OwnNamespace/SingleNamespace; an empty `spec: {}` requests AllNamespaces.
-`metallb` and `external-secrets` are AllNamespaces-only; the rest use
-`targetNamespaces`.
+That last row is the point. A Component can say "additionally, patch whatever
+is already here", which a base cannot.
 
-`scripts/verify-channels.sh` checks both the pinned channel and the
-OperatorGroup shape against the catalog. Run it after an OpenShift upgrade, and
-after adding any component:
+## Two rules
 
-```bash
-scripts/verify-channels.sh
+**Reference with `components:`, never `resources:`.** Kustomize rejects the
+second outright:
+
+```
+expected kind != 'Component' for path '.../mycomp'
 ```
 
-> **ArgoCD will not catch a failed operator install.** It manages the Namespace,
-> OperatorGroup and Subscription; the CSV is created by OLM and is not part of
-> the Application, so the app reports Synced/Healthy while the operator sits in
-> `Failed`. Confirm an operator actually installed by looking at the CSV, not at
-> ArgoCD:
->
-> ```bash
-> oc get csv -A | grep -v Succeeded
-> ```
+**Never point an ApplicationSet `path:` at a Component directory.** ArgoCD runs
+`kustomize build` on whatever the path resolves to, and a patch-only Component
+built standalone emits **nothing and exits 0** — no resources, no error. The
+Application reports Synced/Healthy having deployed nothing. That is the same
+silent-nothing failure as an unreferenced manifest, which is why
+`scripts/validate.sh` checks for it.
 
-## config/
+Only `manifests/**/base` and `manifests/**/overlays/<cluster>` are safe as
+Application paths.
 
-The CRs that make an installed operator do something.
+## When to add one
 
-- `base/` — cluster-agnostic. Selects nodes by **label**, never by hostname.
-- `overlays/<cluster>/` — the values that differ per cluster: disk sizes, IP
-  ranges, resource requests.
+**When a second overlay would copy something.** Not before — a Component used
+once is indirection with no payoff.
 
-`node-labels/` is the deliberate exception: it has no base, only
-`overlays/hub/`, because mapping labels onto named machines cannot be made
-cluster-agnostic. It is also the only component that manages objects ArgoCD did
-not create, so every Node in it carries
-`argocd.argoproj.io/sync-options: Prune=false,Delete=false`.
+With a single cluster there is nothing here yet. The candidates that appear the
+moment a second cluster exists:
 
-## Using upstream content
+| Today, in `manifests/` | Becomes a Component when |
+|---|---|
+| `config/odf/overlays/hub` mds/OSD resource patch | a second ODF cluster shares the "3-node small" profile |
+| `config/local-storage/overlays/hub` disk-size bounds | a second cluster has the same disk geometry |
+| `config/odf/overlays/hub/storageclass-defaults.yaml` | strongest candidate — "rbd default + virt default" is a convention for *any* ODF+CNV cluster, not a hub-specific value |
+| `config/metallb/overlays/hub/addresspool.yaml` | you want an on/off slice rather than a commented-out line |
 
-Point at it as a remote base rather than aiming an Application at another repo:
+Optional slices are the clearest case. Three overlays in `manifests/` currently
+do nothing but `resources: [../../base]` — they exist only because an
+ApplicationSet path must resolve to a Kustomization. "This cluster additionally
+wants X" is exactly what a Component expresses.
+
+## What Components cannot fix
+
+All six `manifests/olm/*/base/kustomization.yaml` files are structurally
+identical:
 
 ```yaml
-# components/olm/something/base/kustomization.yaml
-resources:
-  - https://github.com/redhat-cop/gitops-catalog/something/operator/overlays/stable?ref=main
+resources: [namespace.yaml, operatorgroup.yaml, subscription.yaml]
 ```
 
-This keeps every Application sourced from this repo, so the upstream reference
-is versioned and reviewable here instead of hidden in an Application spec.
-
-## Adding a component
-
-1. `components/olm/<name>/base/` — namespace, operatorgroup, subscription.
-2. `components/config/<name>/base/` — the CRs.
-3. `components/config/<name>/overlays/<cluster>/` — only if values differ.
-4. Add an element to the relevant ApplicationSet in `clusters/<cluster>/`.
-5. `oc kustomize <dir>` to confirm it builds before committing.
-
-## Current state
-
-| Component | OLM | Config | Notes |
-|---|---|---|---|
-| nmstate | ✅ | ✅ | `br-vmdata` OVS bridge on `ens224`, with an OVN localnet mapping for `physnet-vmdata` |
-| metallb | ✅ | ✅ | Address pool written but commented out — IP range unverified |
-| local-storage | ✅ | ✅ | Bounded to the 1TiB `sdb` on each store node |
-| odf | ✅ | ✅ | 3 × 1TiB OSDs, `flexibleScaling`; sets the cluster and virt default StorageClasses — see [its README](config/odf/README.md) |
-| virtualization | ✅ | ✅ | Workloads pinned to `node-role.kubernetes.io/virtualization` |
-| external-secrets | ✅ | ✅ | `onepasswordSDK` provider against the `eso` vault. The service-account token secret is a deliberate manual step — see [its README](config/external-secrets/README.md) |
+That looks like duplication a Component should absorb. It is not — the
+*referenced files* differ in content, and kustomize has no templating, so
+nothing can parameterize them. This boilerplate is irreducible in plain
+kustomize. Reach for a generator or a chart if it ever becomes intolerable.

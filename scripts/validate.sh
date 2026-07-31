@@ -77,7 +77,7 @@ while IFS= read -r f; do
   fail=1
 done < <(find . \( -path ./.git -o -path ./.beads \) -prune -o \
            -name '*.yaml' ! -name 'kustomization.yaml' -print \
-         | sed 's|^\./||' | grep -E '^(components|manifests)/' | sort)
+         | sed 's|^\./||' | grep -E '^manifests/' | sort)
 
 (( listed )) || echo "  none"
 

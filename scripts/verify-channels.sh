@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks every components/olm/* component against the connected cluster's
+# Checks every manifests/olm/* component against the connected cluster's
 # catalog, in two passes:
 #
 #   1. the pinned channel in subscription.yaml vs the catalog's default channel
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-olm_dir="$repo_root/components/olm"
+olm_dir="$repo_root/manifests/olm"
 
 if ! oc whoami >/dev/null 2>&1; then
   echo "Not logged in to a cluster. Set KUBECONFIG and retry." >&2

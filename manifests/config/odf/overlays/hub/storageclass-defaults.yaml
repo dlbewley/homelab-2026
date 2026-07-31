@@ -12,7 +12,7 @@
 # (wave 0). Until ODF has actually created the classes, the apply fails with
 #   The StorageClass "..." is invalid: provisioner: Required value
 # and ordinary retry/backoff picks it up once they exist. Note this differs
-# from the NNCP case in components/config/nmstate: there the *kind* was missing
+# from the NNCP case in manifests/config/nmstate: there the *kind* was missing
 # and SkipDryRunOnMissingResource was needed. Here the kind exists and only the
 # *object* is absent, so that option would do nothing — plain retry is what
 # converges.
@@ -20,7 +20,7 @@
 # Prune=false,Delete=false is load-bearing. Without it ArgoCD treats these as
 # resources it owns, and removing this file from git — or an errant prune —
 # would DELETE ODF's StorageClasses and orphan every PV bound to them. Same
-# reasoning as the Node objects in components/config/node-labels.
+# reasoning as the Node objects in manifests/config/node-labels.
 #
 # Docs:
 # https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html/virtualization/storage#virt-configuring-default-and-virt-default-storage-class_virt-automatic-bootsource-updates

@@ -10,7 +10,7 @@ This component is easy to get wrong because there are two:
 
 | Namespace | Created by | Contains |
 |---|---|---|
-| `external-secrets-operator` | `components/olm/external-secrets/base` | the operator (OLM Subscription, CSV, operator pod) |
+| `external-secrets-operator` | `manifests/olm/external-secrets/base` | the operator (OLM Subscription, CSV, operator pod) |
 | `external-secrets` | the operator, from `ExternalSecretsConfig` | the operand: controller/webhook pods, **and the token secret** |
 
 The operator installs `AllNamespaces`-only, so its OperatorGroup has an empty

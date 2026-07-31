@@ -7,7 +7,7 @@
 #
 # Every element points at THIS repo. If a component wants upstream content
 # (redhat-cop/gitops-catalog, for example) it pulls it in as a remote base from
-# inside components/olm/<name>/base/kustomization.yaml. Keeping one repoURL here
+# inside manifests/olm/<name>/base/kustomization.yaml. Keeping one repoURL here
 # means a fork is a single edit per file rather than one per component.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -23,26 +23,26 @@ spec:
         elements:
           - name: nmstate
             namespace: openshift-nmstate
-            path: components/olm/nmstate/base
+            path: manifests/olm/nmstate/base
           - name: metallb
             namespace: metallb-system
-            path: components/olm/metallb/base
+            path: manifests/olm/metallb/base
           - name: local-storage
             namespace: openshift-local-storage
-            path: components/olm/local-storage/base
+            path: manifests/olm/local-storage/base
           - name: odf
             namespace: openshift-storage
-            path: components/olm/odf/base
+            path: manifests/olm/odf/base
           - name: virtualization
             namespace: openshift-cnv
-            path: components/olm/virtualization/base
+            path: manifests/olm/virtualization/base
           # AllNamespaces-only, so its OperatorGroup uses `spec: {}` rather than
           # targetNamespaces. The operator runs in external-secrets-operator;
           # its operand lands in external-secrets. See
-          # components/config/external-secrets/README.md.
+          # manifests/config/external-secrets/README.md.
           - name: external-secrets
             namespace: external-secrets-operator
-            path: components/olm/external-secrets/base
+            path: manifests/olm/external-secrets/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'
