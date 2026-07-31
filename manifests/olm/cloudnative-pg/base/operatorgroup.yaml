@@ -1,0 +1,16 @@
+---
+# AllNamespaces (empty spec), NOT targetNamespaces — the opposite of the
+# rhbk-operator next door, and for a concrete reason: the Postgres Cluster this
+# operator must manage lives in the `keycloak` namespace, not here. An
+# OwnNamespace install would simply never reconcile it.
+#
+# Supported modes for this package:
+#   OwnNamespace, SingleNamespace, MultiNamespace, AllNamespaces
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cloudnative-pg-operatorgroup
+  namespace: cnpg-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec: {}

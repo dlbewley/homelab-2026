@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - certificate.yaml
+  - route.yaml
+
+# The hostname is the OIDC issuer URL. It is cluster-specific, and expensive to
+# change once tokens and clients reference it, which is why it is set here
+# rather than defaulted somewhere in base.
+patches:
+  - target:
+      kind: Keycloak
+      name: keycloak
+    patch: |-
+      - op: add
+        path: /spec/hostname
+        value:
+          hostname: keycloak.apps.hub.lab.bewley.net

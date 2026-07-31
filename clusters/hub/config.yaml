@@ -58,6 +58,12 @@ spec:
           - name: cert-manager
             namespace: cert-manager-operator
             path: manifests/config/cert-manager/overlays/hub
+          # Depends on cloudnative-pg and cert-manager being installed, and
+          # on the homelab-ca issuer being Ready. Those are separate
+          # Applications, so ordering here is by retry, not sync wave.
+          - name: keycloak
+            namespace: keycloak
+            path: manifests/config/keycloak/overlays/hub
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'

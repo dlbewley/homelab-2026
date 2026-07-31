@@ -1,0 +1,20 @@
+---
+# targetNamespaces is REQUIRED here. This operator supports OwnNamespace and
+# SingleNamespace ONLY — there is no AllNamespaces support:
+#   oc get packagemanifest rhbk-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> OwnNamespace, SingleNamespace
+#
+# An empty `spec: {}` would request AllNamespaces and fail resolution exactly as
+# metallb did. scripts/verify-channels.sh checks this against the pinned channel.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: keycloak-operatorgroup
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  targetNamespaces:
+    - keycloak

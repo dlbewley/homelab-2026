@@ -88,3 +88,5 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | virtualization | ✅ | ✅ | Workloads pinned to `node-role.kubernetes.io/virtualization` |
 | external-secrets | ✅ | ✅ | `onepasswordSDK` provider against the `eso` vault. The service-account token secret is a deliberate manual step — see [its README](config/external-secrets/README.md) |
 | cert-manager | ✅ | ✅ | Private CA `homelab-ca` ClusterIssuer; wildcard cert wired into the default router — see [its README](config/cert-manager/README.md) |
+| cloudnative-pg | ✅ | — | Postgres operator, AllNamespaces so it can manage the Cluster in `keycloak` |
+| keycloak | ✅ | ✅ | RHBK + CloudNativePG database, passthrough TLS from `homelab-ca` — see [its README](config/keycloak/README.md) |

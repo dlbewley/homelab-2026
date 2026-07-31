@@ -1,0 +1,31 @@
+---
+# TLS for the Keycloak pod itself, signed by the homelab-ca ClusterIssuer from
+# manifests/config/cert-manager. Lives in the keycloak namespace because
+# cert-manager writes the Secret alongside the Certificate, and that is where
+# the Keycloak pod reads it.
+#
+# Renewal is automatic and rewrites keycloak-tls in place 30 days before expiry.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  secretName: keycloak-tls
+  commonName: keycloak.apps.hub.lab.bewley.net
+  dnsNames:
+    - keycloak.apps.hub.lab.bewley.net
+    # In-cluster name, so components talking to the Service directly rather than
+    # via the Route still get a valid certificate.
+    - keycloak-service.keycloak.svc
+  duration: 2160h    # 90 days
+  renewBefore: 720h  # 30 days
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: homelab-ca
+    kind: ClusterIssuer
+    group: cert-manager.io
