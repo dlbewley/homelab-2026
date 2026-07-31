@@ -1,0 +1,23 @@
+---
+# Passthrough Route: the router forwards TLS untouched and Keycloak terminates
+# it with the certificate above. The router's own wildcard is not involved.
+#
+# The Service name is <keycloak-cr-name>-service, created by the operator.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: keycloak
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+spec:
+  host: keycloak.apps.hub.lab.bewley.net
+  to:
+    kind: Service
+    name: keycloak-service
+    weight: 100
+  port:
+    targetPort: https
+  tls:
+    termination: passthrough
+    insecureEdgeTerminationPolicy: Redirect

@@ -1,0 +1,43 @@
+---
+# The Keycloak instance.
+#
+# NOT DEPLOYABLE ON ITS OWN: spec.hostname.hostname is required and is
+# necessarily cluster-specific, so it is patched in by overlays/<cluster>.
+# Only overlays are referenced by an ApplicationSet.
+#
+# The hostname deserves thought before you commit to it. It becomes the OIDC
+# issuer URL, which is embedded in every token Keycloak signs and in every
+# client's configuration. Changing it later invalidates all of that.
+#
+# TLS terminates at Keycloak, not at the router: the Route is passthrough and
+# this pod serves HTTPS using a cert-manager certificate. For an identity
+# provider that is worth the extra step — the router-to-pod hop is encrypted
+# too, rather than plaintext inside the cluster.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  instances: 1
+  http:
+    # Created by the Certificate in overlays/<cluster>.
+    tlsSecret: keycloak-tls
+  ingress:
+    # Disabled in favour of an explicit OpenShift Route in the overlay. The
+    # operator would otherwise create an Ingress, which OpenShift converts to a
+    # Route by rules that are harder to reason about than just writing one.
+    enabled: false
+  db:
+    vendor: postgres
+    host: keycloak-db-rw
+    port: 5432
+    database: keycloak
+    usernameSecret:
+      name: keycloak-db-app
+      key: username
+    passwordSecret:
+      name: keycloak-db-app
+      key: password

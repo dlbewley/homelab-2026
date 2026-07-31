@@ -1,0 +1,16 @@
+---
+# This package has NO operatorframework.io/suggested-namespace annotation, so
+# the name is a deliberate choice rather than something inferred from the
+# package name (rhbk-operator). Chosen: keycloak.
+#
+# Unlike cert-manager and external-secrets there is no operator/operand split —
+# rhbk-operator installs SingleNamespace/OwnNamespace only, so the operator and
+# the Keycloak instance it manages share this namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keycloak
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

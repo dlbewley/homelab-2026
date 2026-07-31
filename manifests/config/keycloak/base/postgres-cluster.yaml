@@ -1,0 +1,32 @@
+---
+# PostgreSQL for Keycloak, managed by CloudNativePG.
+#
+# Keycloak in production mode requires an external database and the RHBK
+# operator does not provide one. This is that database.
+#
+# CloudNativePG creates, for a Cluster named keycloak-db:
+#   keycloak-db-rw      Service, always the current primary
+#   keycloak-db-ro      Service, replicas only
+#   keycloak-db-app     Secret with `username` and `password` for the app user
+# The Keycloak CR below consumes the -rw Service and that Secret, so failover is
+# handled without Keycloak knowing.
+#
+# storageClass is deliberately omitted so it uses the cluster default, which
+# manifests/config/odf sets to ocs-storagecluster-ceph-rbd. That keeps this file
+# free of cluster-specific values.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak-db
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  instances: 2
+  primaryUpdateStrategy: unsupervised
+  storage:
+    size: 10Gi
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
