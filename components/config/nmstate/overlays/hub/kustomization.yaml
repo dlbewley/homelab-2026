@@ -5,4 +5,4 @@ resources:
   - ../../base
   # Uncomment once the NIC names are confirmed on every cnv node. Read the
   # warning at the top of the file first — a wrong NIC isolates the node.
-  - br-vmdata-nncp.yaml
+  - nncp-vmdata.yaml
