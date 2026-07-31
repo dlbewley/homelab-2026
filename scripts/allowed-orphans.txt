@@ -1,0 +1,12 @@
+# Manifests that exist on purpose but are deliberately NOT referenced by their
+# directory's kustomization.yaml — staged, awaiting a decision.
+#
+# Anything not listed here that is unreferenced fails validation. That matters
+# because kustomize renders an unreferenced file as nothing at all, with no
+# error: the same silent-nothing failure as an empty manifest.
+#
+# One repo-relative path per line. Say why, and link the issue that retires it.
+
+# Pending confirmation that 192.168.4.200-230 does not collide with the DHCP
+# scope on the lab network. Retired by homelab-2026-4pq.11.
+components/config/metallb/overlays/hub/addresspool.yaml

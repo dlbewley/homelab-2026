@@ -1,0 +1,41 @@
+name: validate
+
+# Gate every change on the checks that need no cluster. scripts/validate.sh is
+# the single source of truth so a green local run means a green CI run.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Pin rather than track latest, so a kustomize release cannot change what this
+  # repo renders without a reviewable commit. Bump deliberately.
+  KUSTOMIZE_VERSION: v5.8.1
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install kustomize ${{ env.KUSTOMIZE_VERSION }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          url="https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "$url" | tar -xz -C "$RUNNER_TEMP/bin" kustomize
+          "$RUNNER_TEMP/bin/kustomize" version
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Build every kustomization, and check for orphaned manifests
+        run: ./scripts/validate.sh
+
+  # scripts/verify-channels.sh compares pinned channels and OperatorGroup install
+  # modes against a live catalog, and server-side apply dry-run is what catches
+  # CRD schema errors. Neither can run here: GitHub-hosted runners have no route
+  # to the homelab cluster. Both stay a manual gate, run from a logged-in shell
+  # before merging changes to Subscriptions or operator CRs.
