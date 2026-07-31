@@ -1,0 +1,32 @@
+---
+# Points the default router at the wildcard above.
+#
+# The IngressController is created and owned by the cluster ingress operator,
+# not by this repo, so only the one field we want to own is declared here.
+# Server-side apply merges it; the ingress operator manages the object with
+# `Update` and keeps the rest. Same pattern as the StorageClass defaults in
+# manifests/config/odf and the Node labels in manifests/config/node-labels.
+#
+# Prune=false,Delete=false is load-bearing: without it, removing this file would
+# have ArgoCD delete the cluster's IngressController.
+#
+# Sync wave 20 puts this after the Certificate in wave 10. If it lands first the
+# ingress operator reports Degraded because the secret is missing, and recovers
+# on its own once cert-manager writes it.
+#
+# APPLYING THIS TRIGGERS A ROUTER ROLLOUT. Browsers will warn until the homelab
+# CA is trusted — that is the CA to install once, not a broken certificate. To
+# revert to the built-in self-signed cert:
+#   oc patch ingresscontroller/default -n openshift-ingress-operator \
+#     --type=json -p '[{"op":"remove","path":"/spec/defaultCertificate"}]'
+apiVersion: operator.openshift.io/v1
+kind: IngressController
+metadata:
+  name: default
+  namespace: openshift-ingress-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  defaultCertificate:
+    name: apps-wildcard-tls

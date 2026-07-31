@@ -1,0 +1,33 @@
+---
+# Wildcard certificate for every Route on this cluster — console, ArgoCD, and
+# any application Route — in one certificate.
+#
+# It lives in `openshift-ingress` because cert-manager writes the resulting
+# Secret into the Certificate's own namespace, and that is where the router
+# reads it from.
+#
+# A wildcard covers one label only: foo.apps.hub.lab.bewley.net matches,
+# foo.bar.apps.hub.lab.bewley.net does not. Routes are always single-label, so
+# this is sufficient. It also does not cover the apex apps.hub.lab.bewley.net,
+# which nothing serves.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: apps-wildcard
+  namespace: openshift-ingress
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  secretName: apps-wildcard-tls
+  commonName: '*.apps.hub.lab.bewley.net'
+  dnsNames:
+    - '*.apps.hub.lab.bewley.net'
+  duration: 2160h    # 90 days
+  renewBefore: 720h  # 30 days — cert-manager rewrites the secret in place
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: homelab-ca
+    kind: ClusterIssuer
+    group: cert-manager.io

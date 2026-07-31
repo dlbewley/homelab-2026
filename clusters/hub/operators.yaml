@@ -43,6 +43,9 @@ spec:
           - name: external-secrets
             namespace: external-secrets-operator
             path: manifests/olm/external-secrets/base
+          - name: cert-manager
+            namespace: cert-manager-operator
+            path: manifests/olm/cert-manager/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'

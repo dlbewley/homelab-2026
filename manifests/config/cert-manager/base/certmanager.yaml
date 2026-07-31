@@ -1,0 +1,17 @@
+---
+# Tells the operator to deploy the cert-manager operand — controller, webhook
+# and cainjector — into the `cert-manager` namespace, which the operator
+# creates. Matches the CSV's own alm-examples.
+#
+# Note the two namespaces, same split as external-secrets:
+#   cert-manager-operator  the operator (Subscription, CSV, operator pod)
+#   cert-manager           the operand, and where ClusterIssuers look for secrets
+apiVersion: operator.openshift.io/v1alpha1
+kind: CertManager
+metadata:
+  name: cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  logLevel: Normal
+  managementState: Managed

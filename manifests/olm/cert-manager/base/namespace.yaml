@@ -1,0 +1,17 @@
+---
+# Namespace name comes from the operator's own suggestion:
+#   oc get packagemanifest openshift-cert-manager-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.channels[0].currentCSVDesc.annotations.operatorframework\.io/suggested-namespace}'
+#   -> cert-manager-operator
+#
+# This is where the OPERATOR runs. The operand — the cert-manager controller,
+# webhook and cainjector — is deployed by the CertManager CR into a separate
+# `cert-manager` namespace, which the operator creates.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager-operator
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

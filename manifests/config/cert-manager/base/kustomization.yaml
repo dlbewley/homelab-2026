@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Order matters and is expressed with sync waves, because each step depends on
+# the previous one existing:
+#   0  CertManager CR      deploys the operand
+#   5  selfsigned issuer   can sign the root
+#   6  root CA Certificate produces homelab-ca-tls
+#   7  homelab-ca issuer   consumes that secret
+resources:
+  - certmanager.yaml
+  - clusterissuer-selfsigned.yaml
+  - ca-certificate.yaml
+  - clusterissuer-ca.yaml
