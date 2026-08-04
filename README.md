@@ -6,7 +6,7 @@ Build and configure the Bewley homelab OpenShift clusters.
 |---|---|---|
 | Day 0 — build the cluster | [scripts/](scripts/) | shell + `govc` against vSphere |
 | Day 1 — install GitOps | [bootstrap/](bootstrap/) | `oc apply -k bootstrap/` |
-| Day 2 — configure the cluster | [clusters/](clusters/), [manifests/](manifests/) | ArgoCD |
+| Day 2 — configure the cluster | [clusters/](clusters/), [manifests/](manifests/) | ArgoCD: `oc apply -k clusters/hub` |
 
 ## Layout
 
