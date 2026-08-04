@@ -64,6 +64,9 @@ spec:
           - name: keycloak
             namespace: keycloak
             path: manifests/config/keycloak/overlays/hub
+          - name: ovn-recon
+            namespace: ovn-recon
+            path: manifests/config/ovn-recon/overlays/hub
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'

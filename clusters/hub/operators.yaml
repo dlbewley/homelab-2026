@@ -55,6 +55,16 @@ spec:
           - name: keycloak
             namespace: keycloak
             path: manifests/olm/keycloak/base
+          # Repo-wide catalog serving Bewley-built operators. Its own
+          # component so a prune of any one operator cannot remove it.
+          - name: bewley-catalog
+            namespace: openshift-marketplace
+            path: manifests/olm/bewley-catalog/base
+          # AllNamespaces: the collector probes openshift-ovn-kubernetes and
+          # openshift-frr-k8s, so it must act outside its own namespace.
+          - name: ovn-recon
+            namespace: ovn-recon
+            path: manifests/olm/ovn-recon/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'

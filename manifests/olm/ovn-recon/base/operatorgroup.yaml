@@ -1,0 +1,26 @@
+---
+# No targetNamespaces means AllNamespaces, which this operator supports:
+#   oc get packagemanifest ovn-recon-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> OwnNamespace, SingleNamespace, AllNamespaces
+#
+# AllNamespaces is the right choice here rather than merely a permitted one: the
+# collector probes openshift-ovn-kubernetes and openshift-frr-k8s, so the
+# operator must act outside its own namespace. An OwnNamespace install would
+# resolve cleanly and then quietly fail to do its job.
+#
+# The namespace below is REQUIRED. Without it the object lands in whatever
+# namespace is ambient — the local context when applied by hand, or the
+# Application's destination.namespace under ArgoCD. OLM only pairs an
+# OperatorGroup with Subscriptions in the same namespace, so a mismatch means
+# the operator silently never installs.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: ovn-recon-operatorgroup
+  namespace: ovn-recon
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  upgradeStrategy: Default
