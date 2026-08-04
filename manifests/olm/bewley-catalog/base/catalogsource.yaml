@@ -1,0 +1,37 @@
+---
+# Catalog of operators built by Dale Bewley, e.g. ovn-recon-operator.
+#
+# Repo-wide infrastructure rather than part of any one operator: a catalog can
+# serve several packages, so it gets its own component. Keeping it inside
+# manifests/olm/ovn-recon would mean either duplicating it when a second Bewley
+# operator is added, or letting a prune of that Application delete the catalog
+# out from under everything else using it.
+#
+# openshift-marketplace is a platform namespace that already exists, so nothing
+# here creates it.
+#
+# Ordering: any Subscription sourced from this catalog needs it registered and
+# its pod serving first. Those are separate Applications, so ordering is by
+# ArgoCD retry rather than sync waves — expect brief resolution failures on a
+# first sync.
+#
+# DRIFT: the image is a floating :latest tag polled hourly, so catalog content
+# can change with no corresponding commit — at odds with the pinned channels
+# elsewhere in this repo. Pinning to a digest makes catalog contents
+# reproducible, at the cost of a commit to pick up new operator versions:
+#   quay.io/dbewley/bewley-operator-catalog@sha256:936594705fe92f369bfbf612d7a2bdf68c4971cfa9d6eb56e2c695653692dcea
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: bewley-operators
+  namespace: openshift-marketplace
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  sourceType: grpc
+  image: quay.io/dbewley/bewley-operator-catalog:latest
+  displayName: Bewley Operators
+  publisher: Dale Bewley
+  updateStrategy:
+    registryPoll:
+      interval: 1h

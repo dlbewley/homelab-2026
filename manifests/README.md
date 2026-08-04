@@ -16,13 +16,31 @@ Installs an operator. Each `base/` is the same three objects:
 | File | Wave | Why |
 |---|---|---|
 | `namespace.yaml` | 0 | Declared here rather than via `CreateNamespace=true` so it can carry `openshift.io/cluster-monitoring` |
-| `operatorgroup.yaml` | 1 | Own-namespace install mode |
+| `operatorgroup.yaml` | 1 | Install mode — see below |
 | `subscription.yaml` | 2 | Channel pinned, `installPlanApproval: Automatic` |
 
-The OperatorGroup shape must match what the operator supports. `targetNamespaces`
-requests OwnNamespace/SingleNamespace; an empty `spec: {}` requests AllNamespaces.
-`metallb` and `external-secrets` are AllNamespaces-only; the rest use
-`targetNamespaces`.
+`bewley-catalog` is the exception: it registers a `CatalogSource` and has none
+of the three.
+
+### OperatorGroup shape
+
+`targetNamespaces` requests OwnNamespace (or SingleNamespace, if it targets a
+namespace other than its own); an empty `spec: {}` requests AllNamespaces. Ask
+for a mode the operator does not support and resolution fails with a message
+that names the mode but not the fix.
+
+AllNamespaces appears here for **two different reasons**, worth keeping
+straight:
+
+| Component | Shape | Why |
+|---|---|---|
+| `metallb`, `external-secrets` | `spec: {}` | AllNamespaces is the **only** mode the operator supports |
+| `cloudnative-pg` | `spec: {}` | **chosen** — must manage the Postgres `Cluster` in the `keycloak` namespace |
+| `ovn-recon` | `spec: {}` | **chosen** — the collector probes `openshift-ovn-kubernetes` and `openshift-frr-k8s` |
+| everything else | `targetNamespaces` | own namespace is sufficient |
+
+The chosen ones would resolve perfectly well as OwnNamespace and then quietly
+fail to do their job, which is the harder failure to diagnose.
 
 `scripts/verify-channels.sh` checks both the pinned channel and the
 OperatorGroup shape against the catalog. Run it after an OpenShift upgrade, and
@@ -81,6 +99,7 @@ is versioned and reviewable here instead of hidden in an Application spec.
 
 | Component | OLM | Config | Notes |
 |---|---|---|---|
+| node-labels | — | ✅ | Config-only, and `overlays/hub` only — mapping labels onto named machines cannot be cluster-agnostic. Manages pre-existing Nodes, so every one carries `Prune=false,Delete=false` |
 | nmstate | ✅ | ✅ | `br-vmdata` OVS bridge on `ens224`, with an OVN localnet mapping for `physnet-vmdata` |
 | metallb | ✅ | ✅ | Address pool written but commented out — IP range unverified |
 | local-storage | ✅ | ✅ | Bounded to the 1TiB `sdb` on each store node |
@@ -90,3 +109,5 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | cert-manager | ✅ | ✅ | Private CA `homelab-ca` ClusterIssuer; wildcard cert wired into the default router — see [its README](config/cert-manager/README.md) |
 | cloudnative-pg | ✅ | — | Postgres operator, AllNamespaces so it can manage the Cluster in `keycloak` |
 | keycloak | ✅ | ✅ | RHBK + CloudNativePG database, passthrough TLS from `homelab-ca` — see [its README](config/keycloak/README.md) |
+| bewley-catalog | ✅ | — | `CatalogSource` for self-published operators. Not an operator install — no namespace, OperatorGroup or Subscription |
+| ovn-recon | ✅ | ✅ | OVN topology Console plugin, from `bewley-catalog`. Collector disabled in base, enabled on hub — see [its README](config/ovn-recon/README.md) |

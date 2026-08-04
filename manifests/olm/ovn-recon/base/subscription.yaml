@@ -1,0 +1,27 @@
+---
+# Channel verified against the live hub cluster on 2026-08-03, after registering
+# the bewley-operators CatalogSource:
+#   oc get packagemanifest ovn-recon-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> stable   (currentCSV ovn-recon-operator.v0.3.7)
+# The package also offers a `latest` channel carrying pre-release builds
+# (-a/-b suffixes); `stable` is the deliberate choice.
+# Re-check with scripts/verify-channels.sh after a cluster upgrade.
+#
+# No startingCSV: the Subscription installs the current head of the channel.
+# Pinning one previously meant OLM installed that version and then walked the
+# upgrade graph to the head — roughly ten sequential CSV upgrades — which is
+# churn in service of supporting releases nobody wants to run.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ovn-recon-operator
+  namespace: ovn-recon
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: ovn-recon-operator
+  channel: stable
+  source: bewley-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
