@@ -108,6 +108,6 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | external-secrets | ✅ | ✅ | `onepasswordSDK` provider against the `eso` vault. The service-account token secret is a deliberate manual step — see [its README](config/external-secrets/README.md) |
 | cert-manager | ✅ | ✅ | Private CA `homelab-ca` ClusterIssuer; wildcard cert wired into the default router — see [its README](config/cert-manager/README.md) |
 | cloudnative-pg | ✅ | — | Postgres operator, AllNamespaces so it can manage the Cluster in `keycloak` |
-| keycloak | ✅ | ✅ | RHBK + CloudNativePG database, passthrough TLS from `homelab-ca` — see [its README](config/keycloak/README.md) |
+| keycloak | ✅ | ✅ | RHBK + CloudNativePG database, passthrough TLS from `homelab-ca`, and the `homelab` realm with the `ocp-hub` OIDC client — see [its README](config/keycloak/README.md) |
 | bewley-catalog | ✅ | — | `CatalogSource` for self-published operators. Not an operator install — no namespace, OperatorGroup or Subscription |
 | ovn-recon | ✅ | ✅ | OVN topology Console plugin, from `bewley-catalog`. Collector disabled in base, enabled on hub — see [its README](config/ovn-recon/README.md) |

@@ -1,0 +1,127 @@
+---
+# The `homelab` realm: one realm for the whole lab, one client per cluster.
+#
+# WHY THIS LIVES IN overlays/hub RATHER THAN base
+# Keycloak runs only on hub, so the realm exists only here. Other clusters do
+# not import it — they point at it as a remote OIDC issuer. When a second
+# cluster arrives, its client is added to the `clients` list *below*, not to a
+# realm import on that cluster.
+#
+# WHY NOT master
+# master is Keycloak's own administrative realm. Putting applications or end
+# users there places them adjacent to the admin surface. master stays for
+# administering Keycloak itself.
+#
+# THE REALM NAME IS PART OF THE ISSUER URL
+#   https://keycloak.apps.hub.lab.bewley.net/realms/homelab
+# It is embedded in every token signed and every client configuration, so it is
+# as expensive to change as the hostname. Chosen deliberately.
+#
+# PLACEHOLDERS
+# ${VAR} substitution is performed by Keycloak's realm import; the operator
+# turns each spec.placeholders entry into an environment variable sourced from
+# a Secret. Syntax confirmed from the Keycloak import/export documentation —
+# getting it wrong would silently store the literal string "${VAR}" as the
+# client secret.
+#
+# NOT CONTINUOUS RECONCILIATION
+# KeycloakRealmImport is import-on-create. Editing this CR does not reliably
+# re-import into an existing realm, so it is less declarative than it looks.
+# To force a re-import, delete the resource and let ArgoCD recreate it:
+#   oc delete keycloakrealmimport homelab -n keycloak
+# Treat the console as read-only for anything declared here, or the two will
+# disagree with no warning.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: KeycloakRealmImport
+metadata:
+  name: homelab
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  keycloakCRName: keycloak
+  placeholders:
+    OCP_HUB_CLIENT_SECRET:
+      secret:
+        name: homelab-realm-secrets
+        key: OCP_HUB_CLIENT_SECRET
+    HOMELAB_ADMIN_PASSWORD:
+      secret:
+        name: homelab-realm-secrets
+        key: HOMELAB_ADMIN_PASSWORD
+  realm:
+    realm: homelab
+    displayName: Bewley Homelab
+    enabled: true
+    # Self-registration off: accounts are declared here, not requested.
+    registrationAllowed: false
+    resetPasswordAllowed: false
+    loginWithEmailAllowed: true
+    # Routes are TLS-terminated at the pod, so require HTTPS everywhere rather
+    # than the default that exempts private addresses.
+    sslRequired: all
+
+    groups:
+      # Membership in this group is what the OpenShift Group of the same name
+      # will bind to for RBAC. The claim is emitted by the groups mapper on the
+      # client below; OpenShift does not sync groups from OIDC automatically, so
+      # the OpenShift-side Group still has to exist (homelab-2026-4pq.8).
+      - name: cluster-admins
+
+    users:
+      - username: dlbewley
+        enabled: true
+        emailVerified: true
+        email: dale@bewley.net
+        firstName: Dale
+        lastName: Bewley
+        credentials:
+          - type: password
+            # temporary:false so the password from 1Password is the standing
+            # one. Set true instead to force a change at first login.
+            temporary: false
+            value: ${HOMELAB_ADMIN_PASSWORD}
+        groups:
+          - /cluster-admins
+
+    clients:
+      # One client per cluster. OpenShift's OAuth server is the OIDC client
+      # here — kube-apiserver is not involved, because this cluster uses
+      # IntegratedOAuth rather than Authentication type: OIDC.
+      - clientId: ocp-hub
+        name: OpenShift — hub
+        enabled: true
+        protocol: openid-connect
+        # Confidential: OpenShift requires a client secret, so this cannot be a
+        # public client.
+        publicClient: false
+        secret: ${OCP_HUB_CLIENT_SECRET}
+        standardFlowEnabled: true
+        # Browser redirect flow only. No password grant, no service accounts.
+        directAccessGrantsEnabled: false
+        serviceAccountsEnabled: false
+        # The path segment MUST equal identityProviders[].name in the OAuth CR.
+        # Chosen name: keycloak. Change one without the other and login fails
+        # with a redirect_uri mismatch that names neither side.
+        redirectUris:
+          - https://oauth-openshift.apps.hub.lab.bewley.net/oauth2callback/keycloak
+        webOrigins:
+          - https://oauth-openshift.apps.hub.lab.bewley.net
+        defaultClientScopes:
+          - openid
+          - profile
+          - email
+        protocolMappers:
+          # Without this the token carries no group information and every user
+          # authenticates with no OpenShift group membership at all.
+          - name: groups
+            protocol: openid-connect
+            protocolMapper: oidc-group-membership-mapper
+            config:
+              # false → "cluster-admins" rather than "/cluster-admins", which is
+              # what an OpenShift Group name looks like.
+              full.path: "false"
+              claim.name: groups
+              id.token.claim: "true"
+              access.token.claim: "true"
+              userinfo.token.claim: "true"

@@ -111,11 +111,114 @@ oc get secret keycloak-initial-admin -n keycloak -o jsonpath='{.data.username}' 
 oc get secret keycloak-initial-admin -n keycloak -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
+## The `homelab` realm
+
+`overlays/hub/realm-homelab.yaml` declares one realm for the whole lab, with
+**one client per cluster**. Realm-per-cluster was rejected: it duplicates every
+user into every realm, which defeats central identity.
+
+A realm is an isolated tenant — its own users, groups, roles, policy, signing
+keys and issuer URL. Users cannot cross realms. A **client** is one application
+registered inside a realm, which is why several clusters share one realm rather
+than getting one each.
+
+`master` is left alone. It is Keycloak's own administrative realm; putting
+applications or end users there places them adjacent to the admin surface.
+
+The realm name is part of the issuer URL —
+`https://keycloak.apps.hub.lab.bewley.net/realms/homelab` — so it is as
+expensive to change as the hostname.
+
+### Why it lives in `overlays/hub`
+
+Keycloak runs only on hub, so the realm exists only here. Other clusters do not
+import it; they point at it as a remote OIDC issuer. **A second cluster's client
+is added to the `clients` list in this file**, not to a realm import on that
+cluster.
+
+### The client, and the name that must match
+
+`ocp-hub` is a confidential client. OpenShift's openID identity provider
+requires a client secret, so a public/PKCE client is not available:
+
+```
+spec.identityProviders[0].openID.clientSecret.name: Required value
+```
+
+Its redirect URI ends in the **identity provider name**, not the client ID:
+
+```
+https://oauth-openshift.apps.hub.lab.bewley.net/oauth2callback/keycloak
+                                                              ^^^^^^^^
+```
+
+That segment must equal `identityProviders[].name` in the OAuth CR. Change one
+without the other and login fails with a `redirect_uri` mismatch that names
+neither side.
+
+The `groups` protocol mapper is not optional. Without it the token carries no
+group information and every user authenticates with no group membership at all.
+
+### Secrets: placeholders, not committed values
+
+The realm JSON uses `${VAR}` placeholders. The operator turns each
+`spec.placeholders` entry into an environment variable sourced from a Secret,
+and Keycloak substitutes it during import — so the secret is never in git.
+
+One 1Password item feeds it, via the ExternalSecret machinery already in place.
+
+**Manual step — create the item first.** In the `eso` vault, `keycloak-homelab`
+with two fields:
+
+| Field | Purpose |
+|---|---|
+| `ocp-hub-client-secret` | shared with OpenShift's OAuth server |
+| `admin-password` | initial password for the local user |
+
+```bash
+op item create --category=login --vault=eso --title=keycloak-homelab \
+  'ocp-hub-client-secret[password]=<generate one>' \
+  'admin-password[password]=<choose one>'
+```
+
+Until that exists the ExternalSecret reports `SecretSyncedError` and the realm
+import waits. Expected order, not a fault.
+
+The same client secret will be needed again as a Secret in `openshift-config`
+when the OAuth CR is wired up — one source, two consumers.
+
+### Import-on-create, not reconciliation
+
+`KeycloakRealmImport` imports once. Editing the CR does **not** reliably
+re-import into an existing realm, so it is less declarative than it looks. To
+force a re-import:
+
+```bash
+oc delete keycloakrealmimport homelab -n keycloak
+```
+
+ArgoCD recreates it. Treat the admin console as read-only for anything declared
+here, or git and reality will disagree with no warning.
+
+### Verifying
+
+```bash
+oc get keycloakrealmimport homelab -n keycloak -o jsonpath='{.status.conditions}' | jq
+```
+
+```bash
+curl -sS --cacert <(oc extract secret/homelab-ca-tls -n cert-manager --keys=tls.crt --to=-) \
+  https://keycloak.apps.hub.lab.bewley.net/realms/homelab/.well-known/openid-configuration | jq -r .issuer
+```
+
+Should print the `homelab` issuer URL.
+
 ## Not done here
 
-**Realms.** Nothing creates one, so only the `master` realm exists. Realms are
-declarative via `KeycloakRealmImport`, which is the natural next step — a
-dedicated realm rather than using `master` for applications.
+**Wiring OpenShift to it.** The realm and client exist, but `oauth/cluster` has
+no `identityProviders` entry yet, so `kubeadmin` is still the only login path.
+That is `homelab-2026-4pq.8`, deliberately separate so this change cannot affect
+login.
 
 **Backups.** CloudNativePG supports scheduled backups and point-in-time recovery
 to S3, which the ODF object store could serve. Not configured; the database is
