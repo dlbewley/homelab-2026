@@ -168,18 +168,50 @@ and Keycloak substitutes it during import — so the secret is never in git.
 One 1Password item feeds it, via the ExternalSecret machinery already in place.
 
 **Manual step — create the item first.** In the `eso` vault, `keycloak-homelab`
-with two fields:
+with one field per value below:
 
 | Field | Purpose |
 |---|---|
 | `ocp-hub-client-secret` | shared with OpenShift's OAuth server |
-| `admin-password` | initial password for the local user |
+| `admin-password` | `dlbewley`, the `cluster-admins` account |
+| `dev1-password` … `dev3-password` | test accounts in `developers` |
+| `alice-password`, `bob-password` | test accounts in `developers` |
+
+`op` generates the values, so nothing has to be invented:
 
 ```bash
 op item create --category=login --vault=eso --title=keycloak-homelab \
-  'ocp-hub-client-secret[password]=<generate one>' \
-  'admin-password[password]=<choose one>'
+  'ocp-hub-client-secret[password]=generate' \
+  'admin-password[password]=generate' \
+  'dev1-password[password]=generate' \
+  'dev2-password[password]=generate' \
+  'dev3-password[password]=generate' \
+  'alice-password[password]=generate' \
+  'bob-password[password]=generate'
 ```
+
+Read one back when you need to log in as that account:
+
+```bash
+op read 'op://eso/keycloak-homelab/dev1-password'
+```
+
+### Test accounts
+
+`dev1`, `dev2`, `dev3`, `alice` and `bob` exist for later testing. All are in
+`developers` and **none is in `cluster-admins`** — `developers` grants nothing
+in OpenShift until a Group of that name and a binding exist, so these accounts
+can authenticate and do nothing, which is what makes them useful for testing
+the claim.
+
+They use `temporary: false`, unlike a real onboarding flow. A temporary password
+is rotated away at first login, which would leave the 1Password value stale and
+the account unusable for the next test.
+
+Every credential carries a `value`. A password credential without one is
+accepted by the API and reported Synced by ArgoCD — `value` is not a required
+field — so the realm imports "successfully" and the account simply cannot log
+in.
 
 Until that exists the ExternalSecret reports `SecretSyncedError` and the realm
 import waits. Expected order, not a fault.

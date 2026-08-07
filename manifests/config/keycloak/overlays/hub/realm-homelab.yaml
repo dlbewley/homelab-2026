@@ -49,6 +49,28 @@ spec:
       secret:
         name: homelab-realm-secrets
         key: HOMELAB_ADMIN_PASSWORD
+    # One per test account rather than a shared password, so a single account
+    # can be rotated or revoked without disturbing the others.
+    DEV1_PASSWORD:
+      secret:
+        name: homelab-realm-secrets
+        key: DEV1_PASSWORD
+    DEV2_PASSWORD:
+      secret:
+        name: homelab-realm-secrets
+        key: DEV2_PASSWORD
+    DEV3_PASSWORD:
+      secret:
+        name: homelab-realm-secrets
+        key: DEV3_PASSWORD
+    ALICE_PASSWORD:
+      secret:
+        name: homelab-realm-secrets
+        key: ALICE_PASSWORD
+    BOB_PASSWORD:
+      secret:
+        name: homelab-realm-secrets
+        key: BOB_PASSWORD
   realm:
     realm: homelab
     displayName: Bewley Homelab
@@ -67,6 +89,12 @@ spec:
       # client below; OpenShift does not sync groups from OIDC automatically, so
       # the OpenShift-side Group still has to exist (homelab-2026-4pq.8).
       - name: cluster-admins
+      # Test accounts land here. It intentionally grants nothing: OpenShift RBAC
+      # follows from a Group of the same name plus a binding, neither of which
+      # exists. The group is here so the `groups` claim has something to carry
+      # and so per-group behaviour can be tested against something other than
+      # cluster-admins.
+      - name: developers
 
     users:
       - username: dlbewley
@@ -83,6 +111,75 @@ spec:
             value: ${HOMELAB_ADMIN_PASSWORD}
         groups:
           - /cluster-admins
+      # Test accounts. Deliberately in `developers`, never cluster-admins.
+      #
+      # temporary:false throughout, unlike a real onboarding flow: a temporary
+      # password is rotated away at first login, which would leave the value in
+      # 1Password stale and the account unusable for the next test.
+      #
+      # Every credential carries a value. A password credential without one is
+      # accepted by the API and by ArgoCD — `value` is not a required field, so
+      # the realm imports "successfully" and the account simply cannot log in.
+      - username: dev1
+        enabled: true
+        emailVerified: true
+        email: dev1@lab.bewley.net
+        firstName: Developer
+        lastName: One
+        credentials:
+          - type: password
+            temporary: false
+            value: ${DEV1_PASSWORD}
+        groups:
+          - /developers
+      - username: dev2
+        enabled: true
+        emailVerified: true
+        email: dev2@lab.bewley.net
+        firstName: Developer
+        lastName: Two
+        credentials:
+          - type: password
+            temporary: false
+            value: ${DEV2_PASSWORD}
+        groups:
+          - /developers
+      - username: dev3
+        enabled: true
+        emailVerified: true
+        email: dev3@lab.bewley.net
+        firstName: Developer
+        lastName: Three
+        credentials:
+          - type: password
+            temporary: false
+            value: ${DEV3_PASSWORD}
+        groups:
+          - /developers
+      - username: alice
+        enabled: true
+        emailVerified: true
+        email: alice@lab.bewley.net
+        firstName: Alice
+        lastName: Andersen
+        credentials:
+          - type: password
+            temporary: false
+            value: ${ALICE_PASSWORD}
+        groups:
+          - /developers
+      - username: bob
+        enabled: true
+        emailVerified: true
+        email: bob@lab.bewley.net
+        firstName: Bob
+        lastName: Brown
+        credentials:
+          - type: password
+            temporary: false
+            value: ${BOB_PASSWORD}
+        groups:
+          - /developers
 
     clients:
       # One client per cluster. OpenShift's OAuth server is the OIDC client
