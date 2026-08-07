@@ -17,3 +17,30 @@ spec:
   source: redhat-operators
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic
+  config:
+    env:
+      # ⚠ TECHNOLOGY PREVIEW — enables trust-manager, which the operator ships
+      # but does not deploy unless this gate is set. From the operator's own
+      # flag help:
+      #
+      #   --unsupported-addon-features string
+      #       List of unsupported addon features that the operator optionally enables.
+      #       eg. --unsupported-addon-features="IstioCSR=true"
+      #       Note: Technology Preview features are not supported with Red Hat
+      #       production service level agreements (SLAs) and might not be
+      #       functionally complete. Red Hat does not recommend using them in
+      #       production.
+      #
+      # Accepted here because the alternative is worse: OpenShift needs the
+      # homelab CA in a ConfigMap to trust Keycloak and the router, the CA is
+      # generated in-cluster, and the only other options are committing a
+      # generated certificate to git or copying it by hand. Revisit if a
+      # supported mechanism appears, or if homelab-2026-4pq.20 moves the CA to
+      # 1Password — a CA certificate that already exists as an artifact could be
+      # committed as a ConfigMap without trust-manager at all.
+      #
+      # Verified on hub 2026-08-07: with this unset the TrustManager CR is
+      # created but never reconciled — no operand pod, no status on the CR, and
+      # nothing in the operator log mentioning trustmanager.
+      - name: UNSUPPORTED_ADDON_FEATURES
+        value: TrustManager=true

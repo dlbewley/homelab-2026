@@ -26,3 +26,28 @@ spec:
     namespaceSelector:
       matchLabels:
         kubernetes.io/metadata.name: openshift-config
+---
+# A second copy of the same CA, under the key `ca-bundle.crt`, for the
+# cluster-wide trust bundle referenced by proxy/cluster.
+#
+# Two Bundles rather than one because the two consumers demand different keys
+# and a Bundle target sets a single key:
+#   openID.ca          requires ca.crt         (homelab-ca above)
+#   proxy.trustedCA    requires ca-bundle.crt  (this one)
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: homelab-ca-bundle
+  annotations:
+    argocd.argoproj.io/sync-wave: "9"
+spec:
+  sources:
+    - secret:
+        name: homelab-ca-tls
+        key: tls.crt
+  target:
+    configMap:
+      key: ca-bundle.crt
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: openshift-config

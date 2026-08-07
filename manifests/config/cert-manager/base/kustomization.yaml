@@ -16,3 +16,5 @@ resources:
   # server can find it. See trustmanager.yaml for why this lives here.
   - trustmanager.yaml
   - bundle-homelab-ca.yaml
+  # Cluster-wide trust, so components accept the privately-signed router cert.
+  - proxy-trustedca.yaml
