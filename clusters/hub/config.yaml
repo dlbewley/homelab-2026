@@ -106,3 +106,29 @@ spec:
             duration: 15s
             factor: 2
             maxDuration: 5m
+      # Fields the API server fills in that git deliberately does not set.
+      #
+      # ServerSideApply above is what makes these visible: ArgoCD compares what
+      # it would apply against the live object, and CRD defaults materialise on
+      # the live side only. The resource is Healthy and functioning — it simply
+      # never reports Synced, which trains people to ignore OutOfSync.
+      #
+      # Verified on hub 2026-08-07: adding exactly these paths took
+      # hub-cfg-keycloak from OutOfSync to Synced with no other change.
+      #
+      # Prefer this to restating defaults in the manifests. Declaring them would
+      # also work, but adds boilerplate to every entry of every ExternalSecret
+      # and has to be repeated for each new one.
+      #
+      # Scoped by group and kind, and to named leaf fields rather than whole
+      # objects, so genuine drift in `key`, `secretKey` or the store reference
+      # is still reported.
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .spec.data[].remoteRef.conversionStrategy
+            - .spec.data[].remoteRef.decodingStrategy
+            - .spec.data[].remoteRef.metadataPolicy
+            - .spec.data[].remoteRef.nullBytePolicy
+            - .spec.target.deletionPolicy
