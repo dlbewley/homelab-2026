@@ -1,0 +1,63 @@
+---
+# Adds Keycloak as an OpenShift identity provider.
+#
+# The OAuth CR is a cluster-owned singleton, created by the cluster-version
+# operator, so only spec.identityProviders is declared and server-side apply
+# merges it. Prune=false,Delete=false because deleting this file must never
+# remove the cluster's OAuth configuration.
+#
+# IntegratedOAuth, not Authentication type: OIDC. External OIDC permits exactly
+# one provider (spec.oidcProviders maxItems: 1), which would forbid adding
+# GitHub later. Here identityProviders is unbounded, and rollback is removing a
+# list entry rather than reconfiguring kube-apiserver.
+#
+# THREE NAMES MUST AGREE, and none of the failures says so plainly:
+#   name: keycloak              -> the Keycloak client's redirectUri must end
+#                                  /oauth2callback/keycloak, else redirect_uri
+#                                  mismatch naming neither side
+#   clientID: ocp-hub           -> the clientId in the homelab realm
+#   issuer: .../realms/homelab  -> must match the realm's issuer exactly,
+#                                  trailing slash included, or discovery fails
+#
+# mappingMethod: claim provisions an OpenShift User from preferred_username and
+# refuses if a User of that name already exists mapped to a different identity.
+# That is deliberate: it prevents a second provider silently taking over an
+# existing account. Adding GitHub later for the same person means switching that
+# provider to `add`, which attaches a second Identity to the same User.
+#
+# No `groups` claim mapping. OpenShift would synchronise Group membership from
+# the token, but KeycloakRealmImport is import-on-create, so realm groups can be
+# edited in the console and drift from git — cluster-admin would then be granted
+# by a mutable console rather than a reviewed commit. Group membership stays
+# declared in bootstrap/rbac.yaml. The realm still emits the claim for other
+# OIDC clients that want it.
+apiVersion: config.openshift.io/v1
+kind: OAuth
+metadata:
+  name: cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  identityProviders:
+    - name: keycloak
+      mappingMethod: claim
+      type: OpenID
+      openID:
+        clientID: ocp-hub
+        clientSecret:
+          name: keycloak-client-secret
+        # Keycloak serves a homelab-ca certificate, which is not a public root.
+        # Distributed here by the trust-manager Bundle in
+        # manifests/config/cert-manager. Without it the provider is silently
+        # "not honored".
+        ca:
+          name: homelab-ca
+        issuer: https://keycloak.apps.hub.lab.bewley.net/realms/homelab
+        claims:
+          preferredUsername:
+            - preferred_username
+          name:
+            - name
+          email:
+            - email

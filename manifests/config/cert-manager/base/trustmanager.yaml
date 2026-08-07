@@ -1,0 +1,28 @@
+---
+# Deploys trust-manager, which ships with the cert-manager operator but is not
+# installed by the CertManager CR.
+#
+# It exists here for one reason: OpenShift's OAuth server must trust the
+# certificate Keycloak presents, and that certificate is signed by homelab-ca,
+# not a public root. The openID identity provider takes a `ca` reference to a
+# ConfigMap in openshift-config — and the CRD is blunt about the failure mode:
+#   "If specified and the config map or expected key is not found, the identity
+#    provider is not honored."
+#
+# The CA is generated in-cluster, so committing its PEM to git would couple the
+# repo to a generated value and break on rotation. trust-manager distributes it
+# instead, from the secret cert-manager already produces.
+apiVersion: operator.openshift.io/v1alpha1
+kind: TrustManager
+metadata:
+  name: cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "8"
+spec:
+  trustManagerConfig:
+    # Where trust-manager reads source secrets from. homelab-ca-tls lives here.
+    trustNamespace: cert-manager
+    defaultCAPackage:
+      policy: Enabled
+    logFormat: text
+    logLevel: 1

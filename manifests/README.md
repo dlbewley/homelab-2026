@@ -106,8 +106,9 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | odf | ✅ | ✅ | 3 × 1TiB OSDs, `flexibleScaling`; sets the cluster and virt default StorageClasses — see [its README](config/odf/README.md) |
 | virtualization | ✅ | ✅ | Workloads pinned to `node-role.kubernetes.io/virtualization` |
 | external-secrets | ✅ | ✅ | `onepasswordSDK` provider against the `eso` vault. The service-account token secret is a deliberate manual step — see [its README](config/external-secrets/README.md) |
-| cert-manager | ✅ | ✅ | Private CA `homelab-ca` ClusterIssuer; wildcard cert wired into the default router — see [its README](config/cert-manager/README.md) |
+| cert-manager | ✅ | ✅ | Private CA `homelab-ca` ClusterIssuer; wildcard cert wired into the default router; trust-manager `Bundle` distributes the CA to `openshift-config` — see [its README](config/cert-manager/README.md) |
 | cloudnative-pg | ✅ | — | Postgres operator, AllNamespaces so it can manage the Cluster in `keycloak` |
 | keycloak | ✅ | ✅ | RHBK + CloudNativePG database, passthrough TLS from `homelab-ca`, and the `homelab` realm with the `ocp-hub` OIDC client — see [its README](config/keycloak/README.md) |
+| oauth | — | ✅ | Keycloak as an OpenShift identity provider; group membership stays static in `bootstrap/rbac.yaml` — see [its README](config/oauth/README.md) |
 | bewley-catalog | ✅ | — | `CatalogSource` for self-published operators. Not an operator install — no namespace, OperatorGroup or Subscription |
 | ovn-recon | ✅ | ✅ | OVN topology Console plugin, from `bewley-catalog`. Collector disabled in base, enabled on hub — see [its README](config/ovn-recon/README.md) |

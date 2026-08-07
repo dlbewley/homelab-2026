@@ -1,0 +1,28 @@
+---
+# Copies the homelab root CA into a ConfigMap wherever it is needed, tracking
+# the secret cert-manager maintains rather than a value pinned in git. On CA
+# rotation every target updates without a commit.
+#
+# Target namespaces are selected by label. openshift-config is where OpenShift
+# looks for an identity provider's `ca` reference; add further namespaces here
+# rather than copying certificates around by hand.
+#
+# The ConfigMap takes the Bundle's name — homelab-ca — with the PEM under the
+# key ca.crt, which is the key OpenShift expects.
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: homelab-ca
+  annotations:
+    argocd.argoproj.io/sync-wave: "9"
+spec:
+  sources:
+    - secret:
+        name: homelab-ca-tls
+        key: tls.crt
+  target:
+    configMap:
+      key: ca.crt
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: openshift-config

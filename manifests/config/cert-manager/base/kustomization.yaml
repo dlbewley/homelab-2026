@@ -12,3 +12,7 @@ resources:
   - clusterissuer-selfsigned.yaml
   - ca-certificate.yaml
   - clusterissuer-ca.yaml
+  # trust-manager, and the Bundle that puts homelab-ca where OpenShift's OAuth
+  # server can find it. See trustmanager.yaml for why this lives here.
+  - trustmanager.yaml
+  - bundle-homelab-ca.yaml
