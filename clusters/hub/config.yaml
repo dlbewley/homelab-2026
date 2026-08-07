@@ -67,6 +67,12 @@ spec:
           - name: ovn-recon
             namespace: ovn-recon
             path: manifests/config/ovn-recon/overlays/hub
+          # Adds Keycloak as an identity provider. Depends on the realm
+          # (hub-cfg-keycloak) and on the trust-manager Bundle in
+          # hub-cfg-cert-manager putting homelab-ca into openshift-config.
+          - name: oauth
+            namespace: openshift-config
+            path: manifests/config/oauth/overlays/hub
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'

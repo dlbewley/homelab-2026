@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# No base: the issuer URL, client ID and provider name are all cluster-specific,
+# so there is nothing cluster-agnostic to factor out. Same shape as node-labels.
+resources:
+  - externalsecret-client.yaml
+  - oauth.yaml
