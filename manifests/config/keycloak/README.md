@@ -177,18 +177,26 @@ with one field per value below:
 | `dev1-password` … `dev3-password` | test accounts in `developers` |
 | `alice-password`, `bob-password` | test accounts in `developers` |
 
-`op` generates the values, so nothing has to be invented:
+Create it with the helper — it generates strong values and pipes them to `op`
+on stdin, so no secret becomes a process argument or lands in shell history:
 
 ```bash
-op item create --category=login --vault=eso --title=keycloak-homelab \
-  'ocp-hub-client-secret[password]=generate' \
-  'admin-password[password]=generate' \
-  'dev1-password[password]=generate' \
-  'dev2-password[password]=generate' \
-  'dev3-password[password]=generate' \
-  'alice-password[password]=generate' \
-  'bob-password[password]=generate'
+scripts/create-keycloak-realm-secrets.sh
 ```
+
+```bash
+scripts/create-keycloak-realm-secrets.sh --dry-run
+```
+
+> **Do not use `op item create` with assignment statements for this.**
+> `'dev1-password[password]=generate'` sets the literal string `generate` —
+> assignments take literal values, and `--generate-password` only fills an
+> item's single built-in password field, not custom ones. The item is created,
+> the ExternalSecret syncs, the realm imports, and every account's password is
+> the word "generate".
+
+If the item already exists the script refuses rather than overwriting, and
+prints the `op item edit` form for rotating one field.
 
 Read one back when you need to log in as that account:
 
