@@ -5,6 +5,11 @@ resources:
   - ../../base
   - certificate.yaml
   - route.yaml
+  # The realm and every cluster's OIDC client. Keycloak runs only on hub, so
+  # the realm exists only here — other clusters point at it as a remote issuer
+  # rather than importing their own copy.
+  - externalsecret-realm.yaml
+  - realm-homelab.yaml
 
 # The hostname is the OIDC issuer URL. It is cluster-specific, and expensive to
 # change once tokens and clients reference it, which is why it is set here

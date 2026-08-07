@@ -10,6 +10,7 @@ the second needs a cluster; the third needs neither.
 | [`attach-iso-boot.sh`](attach-iso-boot.sh) | day 0 — provision | `govc` + vSphere |
 | [`collect-nics.sh`](collect-nics.sh) | day 0 — inventory | `govc` + vSphere + `jq` |
 | [`verify-channels.sh`](verify-channels.sh) | day 2 — cluster validation | logged-in `oc` + `jq` |
+| [`create-keycloak-realm-secrets.sh`](create-keycloak-realm-secrets.sh) | day 2 — secret bootstrap | `op` + `jq` |
 | [`validate.sh`](validate.sh) | repo validation | `kustomize` (or `oc`/`kubectl`) |
 
 That last distinction decides what CI can enforce. `validate.sh` needs nothing
@@ -186,6 +187,49 @@ Exit 1 on any problem. Statuses: `DRIFT`, `UNSUPPORTED`, `CHANNEL NOT FOUND`,
 added.
 
 Needs a logged-in `oc` and `jq`.
+
+---
+
+# Day 2 — secret bootstrap
+
+## `create-keycloak-realm-secrets.sh`
+
+Creates the 1Password item backing the homelab Keycloak realm — one field per
+secret the `ExternalSecret` in
+[`manifests/config/keycloak/overlays/hub`](../manifests/config/keycloak/overlays/hub)
+pulls.
+
+```bash
+./create-keycloak-realm-secrets.sh --dry-run
+```
+
+```bash
+./create-keycloak-realm-secrets.sh
+```
+
+Refuses to overwrite an existing item, and prints the `op item edit` form for
+rotating a single field.
+
+**Why this exists rather than a plain `op item create`.** Assignment statements
+take *literal* values, so
+
+```bash
+op item create ... 'dev1-password[password]=generate'
+```
+
+sets the password to the string `generate` — for every field, with no error.
+`--generate-password` does generate a value, but only for an item's single
+built-in password field, not custom ones. `op item create --help` also warns
+that assignment values are recorded in shell history and visible to other
+processes. This script pipes a JSON template on stdin and builds values with a
+shell builtin, so no secret becomes a process argument.
+
+`--dry-run` writes JSON to stdout with values masked, and its commentary to
+stderr, so it can be piped:
+
+```bash
+./create-keycloak-realm-secrets.sh --dry-run | jq -r '.fields[].label'
+```
 
 ---
 
