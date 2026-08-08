@@ -1,0 +1,56 @@
+---
+# Adds the homelab CA to the cluster-wide trust bundle.
+#
+# WHY THIS IS NEEDED, and it is not about Keycloak. Once
+# IngressController/default serves a privately-signed certificate, cluster
+# components that validate route hostnames stop trusting it. The authentication
+# operator was Degraded for seven days with:
+#
+#   RouterCertsDegraded: certificate could not validate route hostname
+#   oauth-openshift.apps.hub.lab.bewley.net: x509: certificate signed by
+#   unknown authority
+#
+# It went Degraded 2m23s after apps-wildcard-tls was created and stayed that
+# way. The cluster stayed Available throughout, which is exactly why it went
+# unnoticed — setting a custom default ingress certificate is only half the job.
+#
+# The proxy validator reads key "ca-bundle.crt" from this ConfigMap, merges it
+# with the system trust store and republishes it as trusted-ca-bundle in
+# openshift-config-managed, which components consume.
+#
+# APPLYING THIS ROLLS OUT THE CLUSTER TRUST BUNDLE. Operators that consume it
+# restart. Expect brief Progressing on several cluster operators.
+#
+# The bundle is MERGED with the system default trust store, not substituted for
+# it — public roots keep working, so ArgoCD can still reach github.com and
+# images still pull. Substitution would deadlock a fresh cluster.
+#
+# FRESH CLUSTER ORDERING: wave 15 sits between the Bundle that creates this
+# ConfigMap (9) and the IngressController that starts serving a privately-signed
+# certificate (20). That order matters — establishing trust before the router
+# switches is what avoids the RouterCertsDegraded state described in the README.
+# ArgoCD has no health check for a Bundle, so it does not truly wait for the
+# ConfigMap to appear; if this lands first the network operator reports Degraded
+# and recovers once trust-manager writes it.
+#
+# Cluster-owned singleton, so only spec.trustedCA is declared and server-side
+# apply merges it. Prune=false,Delete=false because removing this file must
+# never strip other proxy configuration.
+#
+# Force=true is required: .spec.trustedCA.name is already owned by the
+# cluster-bootstrap field manager, which set it empty at install time. Without
+# it the sync fails with
+#   conflict with "cluster-bootstrap": .spec.trustedCA.name
+# cluster-bootstrap is a one-shot installer component that no longer runs, so
+# taking ownership is safe. Verified with --force-conflicts against the live
+# cluster before adding this.
+apiVersion: config.openshift.io/v1
+kind: Proxy
+metadata:
+  name: cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+    argocd.argoproj.io/sync-options: ServerSideApply=true,Force=true,Prune=false,Delete=false
+spec:
+  trustedCA:
+    name: homelab-ca-bundle

@@ -107,6 +107,112 @@ oc patch ingresscontroller/default -n openshift-ingress-operator \
   --type=json -p '[{"op":"remove","path":"/spec/defaultCertificate"}]'
 ```
 
+## ⚠ trust-manager is a Technology Preview feature
+
+The CA has to reach two places OpenShift reads from, and both want a ConfigMap:
+
+| Consumer | ConfigMap | Key |
+|---|---|---|
+| `openID.ca` on the OAuth identity provider | `homelab-ca` | `ca.crt` |
+| `proxy/cluster` cluster-wide trust bundle | `homelab-ca-bundle` | `ca-bundle.crt` |
+
+The CA is generated in-cluster, so committing its PEM would couple git to a
+generated value and break on rotation. trust-manager copies it from the secret
+cert-manager already maintains — but it is gated:
+
+```yaml
+# manifests/olm/cert-manager/base/subscription.yaml
+- name: UNSUPPORTED_ADDON_FEATURES
+  value: TrustManager=true
+```
+
+From the operator's own flag help:
+
+> Note: **Technology Preview features are not supported with Red Hat production
+> service level agreements (SLAs)** and might not be functionally complete. Red
+> Hat does not recommend using them in production.
+
+Accepted here knowingly: this is a homelab, and the alternatives are committing
+a generated certificate to git or copying it by hand. **Revisit if a supported
+mechanism appears**, or when `homelab-2026-4pq.20` moves the CA to 1Password — a
+CA certificate that already exists as an artifact could be committed as a
+ConfigMap directly, with no trust-manager at all.
+
+Without the gate the `TrustManager` CR is created and **never reconciled** — no
+operand pod, no status on the CR, nothing in the operator log. Check for the
+pod, not the CR:
+
+```bash
+oc get pods -n cert-manager | grep trust-manager
+```
+
+## Setting a custom router certificate is only half the job
+
+Pointing `IngressController/default` at a privately-signed certificate makes
+cluster components that validate route hostnames stop trusting it. On this
+cluster the authentication operator went `Degraded` **2m23s** after the wildcard
+secret was created, and stayed that way for a week:
+
+```
+RouterCertsDegraded: certificate could not validate route hostname
+oauth-openshift.apps.hub.lab.bewley.net: x509: certificate signed by unknown authority
+```
+
+The cluster stayed `Available` throughout, which is exactly why it went
+unnoticed. `proxy/cluster` `trustedCA` is the fix: the validator merges that
+bundle with the system trust store and republishes it for components to consume.
+
+If you change the default ingress certificate on any cluster, **check
+`oc get co` afterwards** — the router serving the new certificate is not
+evidence that the cluster accepts it.
+
+## Rebuilding a cluster from scratch
+
+The ordering here is designed for `oc apply -k bootstrap/` followed by
+`oc apply -k clusters/hub` on an empty cluster. What matters:
+
+```
+ 0  CertManager          operand comes up
+ 5  selfsigned-bootstrap  can sign the root
+ 6  homelab-ca (Certificate)
+ 7  homelab-ca (ClusterIssuer)
+ 8  TrustManager          operand — needs the TP gate on the Subscription
+ 9  Bundle x2             writes the CA into openshift-config
+15  Proxy                 cluster-wide trust
+20  IngressController     router starts serving the private certificate
+```
+
+**Trust is established before the router switches.** That is the whole point of
+the gap between 15 and 20 — reverse them and the cluster spends its life in
+`RouterCertsDegraded`.
+
+Expect transient noise, not failure:
+
+- ArgoCD has no health check for a `Bundle`, so wave 15 does not truly wait for
+  the ConfigMap. If `Proxy` lands first the network operator reports Degraded
+  and recovers once trust-manager writes it.
+- The OAuth identity provider is a separate Application, so it retries until the
+  `homelab-ca` ConfigMap and the client secret exist.
+- `kubeadmin` works throughout, so a degraded authentication operator never
+  locks you out.
+
+Two things that would deadlock a rebuild, both checked and neither true here:
+
+- `trustedCA` **merges** with the system trust store rather than replacing it,
+  so public roots survive — ArgoCD can still reach github.com and images still
+  pull.
+- The `Bundle` namespace selector uses `kubernetes.io/metadata.name`, which
+  Kubernetes applies to every namespace automatically, so it needs no
+  pre-labelling.
+
+One genuinely manual prerequisite: the 1Password item behind
+[keycloak](../keycloak) and [oauth](../oauth). It lives outside the cluster and
+survives a rebuild, so a second build finds it already there.
+
+Note a fresh cluster generates a **new** root CA, so anything that trusted the
+old one must trust the new one. `homelab-2026-4pq.20` moves the CA to 1Password
+precisely to remove that.
+
 ## Verifying
 
 ```bash

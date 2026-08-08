@@ -1,6 +1,13 @@
 ---
-# Deploys trust-manager, which ships with the cert-manager operator but is not
-# installed by the CertManager CR.
+# ⚠ TECHNOLOGY PREVIEW. trust-manager ships with the cert-manager operator but
+# is not deployed unless UNSUPPORTED_ADDON_FEATURES=TrustManager=true is set on
+# the Subscription in manifests/olm/cert-manager. Red Hat states that Technology
+# Preview features are not covered by production SLAs, may be functionally
+# incomplete, and are not recommended for production. See that Subscription for
+# why the trade-off was accepted here.
+#
+# Without the gate this CR is created and simply never reconciled — no operand,
+# no status, and nothing in the operator log. Silent, so check for the pod.
 #
 # It exists here for one reason: OpenShift's OAuth server must trust the
 # certificate Keycloak presents, and that certificate is signed by homelab-ca,
