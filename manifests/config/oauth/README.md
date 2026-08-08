@@ -146,16 +146,32 @@ same `User`, so one person keeps one set of RBAC however they signed in:
 ```
 Identity  keycloak:<sub-uuid>  ─┐
                                 ├─►  User dlbewley  ◄── Group cluster-admins
-Identity  github:<login>       ─┘
+Identity  github:<numeric-id>  ─┘
 ```
 
-Note the Keycloak identity embeds the OIDC `sub` (a UUID), not the username —
-`preferred_username` only sets the **User** name. Groups and RBAC key on the
-User, which is what makes merging work.
+**Neither identity uses a username.** Keycloak's embeds the OIDC `sub` (a UUID);
+GitHub's embeds the account's immutable numeric id. As observed on this cluster:
 
-The cost is real: **whoever controls either provider holds that User's
-permissions**. `organizations` bounds that, and GitHub usernames can be renamed
-or re-registered, so check what actually landed after first login:
+```
+identity: keycloak:d290d1d9-2894-4d86-b93b-7820de9220c5  -> user dlbewley
+identity: github:711101                                  -> user dlbewley
+```
+
+Only the **User** name comes from a human-readable claim, and groups and RBAC
+key on the User — which is what makes merging two logins into one set of
+permissions work.
+
+That the providers key on immutable ids matters for the risk below. Renaming a
+GitHub account does not change `711101`, and a freed username re-registered by
+someone else gets a **different** id, so it cannot inherit this User. Username
+churn is not a takeover path here.
+
+The cost that does remain: **whoever controls either account can authenticate as
+that User**, so cluster-admin is only as strong as the weaker of the two. Both
+accounts deserve MFA. `organizations` bounds who may attempt GitHub login at
+all.
+
+Check what actually landed after a first login rather than assuming the format:
 
 ```bash
 oc get identity
