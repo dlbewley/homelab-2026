@@ -21,6 +21,7 @@ manifests/              Reusable building blocks. Plain Kustomizations, not
     base/               The operator's CRs, with nothing cluster-specific in them.
     overlays/<cluster>/ Per-cluster values, patched onto the base.
 components/             Reserved for genuine Kustomize Components. Empty today.
+docs/                   Cross-cutting notes, incl. troubleshooting.
 scripts/                Day 0 VM provisioning, plus repo and cluster validation.
 ```
 
@@ -65,6 +66,20 @@ change — including changes to the ApplicationSets themselves — arrives via g
   fields git declares.
 - **Operator channels** are pinned, not floating. Re-check them after an
   OpenShift upgrade with `scripts/verify-channels.sh`.
+
+## Troubleshooting
+
+[docs/troubleshooting.md](docs/troubleshooting.md) — failure modes actually hit
+building this, each with the symptom that identifies it. Most share a trait:
+the thing that looks healthy is not the thing that is broken.
+
+Two worth knowing before you need them:
+
+- A sync that retries forever against a revision you already fixed. Compare
+  `.status.sync.revision` against
+  `.status.operationState.operation.sync.revision`.
+- ArgoCD reporting an operator Synced/Healthy when its CSV failed to install.
+  Check `oc get csv -A | grep -v Succeeded`, not the ArgoCD UI.
 
 ## Issue tracking
 
