@@ -130,8 +130,90 @@ oc patch oauth cluster --type=json -p '[{"op":"remove","path":"/spec/identityPro
 ArgoCD will put it back — delete the element from `oauth.yaml` for a permanent
 removal.
 
+## GitHub, the second provider
+
+Deliberately independent of Keycloak: it does not need CloudNativePG, ODF or
+the Keycloak pod to be healthy, so it is a genuine fallback rather than a
+convenience.
+
+### `mappingMethod: add`, and why the order already worked out
+
+Keycloak runs `claim`, which **refuses** to bind an existing User to a second
+identity. Since the Keycloak login already created `User/dlbewley`, a `claim`
+GitHub provider would simply fail. `add` attaches a second `Identity` to the
+same `User`, so one person keeps one set of RBAC however they signed in:
+
+```
+Identity  keycloak:<sub-uuid>  ─┐
+                                ├─►  User dlbewley  ◄── Group cluster-admins
+Identity  github:<login>       ─┘
+```
+
+Note the Keycloak identity embeds the OIDC `sub` (a UUID), not the username —
+`preferred_username` only sets the **User** name. Groups and RBAC key on the
+User, which is what makes merging work.
+
+The cost is real: **whoever controls either provider holds that User's
+permissions**. `organizations` bounds that, and GitHub usernames can be renamed
+or re-registered, so check what actually landed after first login:
+
+```bash
+oc get identity
+```
+
+### `organizations` is required, and must be a real Organization
+
+```
+one of organizations or teams must be specified unless hostname is set or lookup is used
+```
+
+Deliberate — it stops you granting login to all of GitHub.
+
+**A personal User account passes validation and then matches nobody.** The API
+cannot tell the difference, so the provider deploys green and no one can ever
+log in. `dwnwrd` was confirmed to be an Organization via the GitHub API before
+being used. Check before trusting a name:
+
+```bash
+curl -sS https://api.github.com/orgs/<name> | jq -r '.login // .message'
+```
+
+### Callback URL
+
+GitHub requires the redirect to be a **subdirectory** of the registered callback
+URL — *"The redirect URL's path must reference a subdirectory of the callback
+URL"* — so registering:
+
+```
+https://oauth-openshift.apps.hub.lab.bewley.net/oauth2callback
+```
+
+covers `/oauth2callback/github` and works for any provider name. That is looser
+than the Keycloak client, whose `redirectUri` must match the provider name
+exactly.
+
+### It must be an OAuth App, not a GitHub App
+
+Different things, adjacent in the GitHub UI, and the failure is confusing.
+OpenShift's `github` provider needs **Settings → Developer settings → OAuth
+Apps**.
+
+### The secret
+
+```bash
+scripts/create-github-oauth-secret.sh --client-id <id>
+```
+
+Prompts for the secret rather than taking it as an argument, so it stays out of
+shell history and the process list, and writes it to the `github-oauth-hub`
+item in the `eso` vault. `--dry-run` shows the structure with the secret
+redacted.
+
+The client **ID** is committed in `oauth.yaml` — not because it is public, but
+because the OAuth CR takes it as a plain string with no secret-reference option.
+
 ## Not done here
 
-**GitHub.** Planned as a second provider restricted to an organization, useful
-precisely because it does not depend on Keycloak, CloudNativePG or ODF being
-healthy. It needs a GitHub OAuth App registered first. See `homelab-2026-4pq.8`.
+Nothing outstanding for identity providers. `htpasswd` was considered as
+break-glass and rejected: `kubeadmin` already fills that role, and every extra
+local credential is one more thing to rotate.

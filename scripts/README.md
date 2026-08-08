@@ -11,6 +11,7 @@ the second needs a cluster; the third needs neither.
 | [`collect-nics.sh`](collect-nics.sh) | day 0 — inventory | `govc` + vSphere + `jq` |
 | [`verify-channels.sh`](verify-channels.sh) | day 2 — cluster validation | logged-in `oc` + `jq` |
 | [`create-keycloak-realm-secrets.sh`](create-keycloak-realm-secrets.sh) | day 2 — secret bootstrap | `op` + `jq` |
+| [`create-github-oauth-secret.sh`](create-github-oauth-secret.sh) | day 2 — secret bootstrap | `op` + `jq` |
 | [`validate.sh`](validate.sh) | repo validation | `kustomize` (or `oc`/`kubectl`) |
 
 That last distinction decides what CI can enforce. `validate.sh` needs nothing
@@ -230,6 +231,27 @@ stderr, so it can be piped:
 ```bash
 ./create-keycloak-realm-secrets.sh --dry-run | jq -r '.fields[].label'
 ```
+
+## `create-github-oauth-secret.sh`
+
+Stores a GitHub OAuth App's client ID and secret in 1Password for the `github`
+identity provider.
+
+```bash
+./create-github-oauth-secret.sh --client-id <id> --dry-run
+```
+
+```bash
+./create-github-oauth-secret.sh --client-id <id>
+```
+
+The mirror image of the script above: that one **generates** values, this one
+**stores** values GitHub gave you. The shared constraint is that neither may put
+a secret in a process argument, so the secret is read from a hidden prompt and
+reaches `op` over a pipe rather than as an assignment statement.
+
+Refuses to overwrite an existing item, and prints the `op item edit` form plus
+the annotation to force the ExternalSecret to re-read after a rotation.
 
 ---
 
