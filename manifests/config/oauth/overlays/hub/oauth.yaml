@@ -61,3 +61,34 @@ spec:
             - name
           email:
             - email
+    # GitHub, as a fallback that does not depend on Keycloak, CloudNativePG or
+    # ODF being healthy. That independence is the point — the Keycloak path has
+    # a long dependency chain behind it.
+    - name: github
+      # `add` rather than `claim`, deliberately. Keycloak already created
+      # User/dlbewley, and `claim` REFUSES to bind an existing User to a second
+      # identity — the GitHub login would simply fail. `add` attaches a second
+      # Identity to the same User, so one person keeps one set of RBAC however
+      # they signed in.
+      #
+      # The consequence is real: whoever controls EITHER provider then holds
+      # that User's permissions. The organizations restriction below is what
+      # bounds that, and GitHub usernames can be renamed or re-registered, so
+      # check `oc get identity` after the first login to see what actually
+      # landed in providerUserName.
+      mappingMethod: add
+      type: GitHub
+      github:
+        clientID: Ov23liQVz8i3W2h74vIN
+        clientSecret:
+          name: github-client-secret
+        # REQUIRED by the API for github.com — "one of organizations or teams
+        # must be specified unless hostname is set or lookup is used". This
+        # deliberately prevents granting login to all of GitHub.
+        #
+        # It must be a real Organization. A personal User account passes
+        # validation and then matches nobody, so the provider deploys green and
+        # no one can ever log in. `dwnwrd` was confirmed to be an Organization
+        # via the GitHub API before being used here.
+        organizations:
+          - dwnwrd

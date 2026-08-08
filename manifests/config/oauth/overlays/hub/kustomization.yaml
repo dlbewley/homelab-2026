@@ -5,4 +5,5 @@ kind: Kustomization
 # so there is nothing cluster-agnostic to factor out. Same shape as node-labels.
 resources:
   - externalsecret-client.yaml
+  - externalsecret-github.yaml
   - oauth.yaml

@@ -109,6 +109,6 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | cert-manager | ✅ | ✅ | Private CA `homelab-ca`; wildcard cert on the router; trust-manager (**Technology Preview**) distributes the CA to `openshift-config` and the cluster trust bundle — see [its README](config/cert-manager/README.md) |
 | cloudnative-pg | ✅ | — | Postgres operator, AllNamespaces so it can manage the Cluster in `keycloak` |
 | keycloak | ✅ | ✅ | RHBK + CloudNativePG database, passthrough TLS from `homelab-ca`, and the `homelab` realm with the `ocp-hub` OIDC client — see [its README](config/keycloak/README.md) |
-| oauth | — | ✅ | Keycloak as an OpenShift identity provider; group membership stays static in `bootstrap/rbac.yaml` — see [its README](config/oauth/README.md) |
+| oauth | — | ✅ | Keycloak (`claim`) and GitHub (`add`, org `dwnwrd`) identity providers; group membership stays static in `bootstrap/rbac.yaml` — see [its README](config/oauth/README.md) |
 | bewley-catalog | ✅ | — | `CatalogSource` for self-published operators. Not an operator install — no namespace, OperatorGroup or Subscription |
 | ovn-recon | ✅ | ✅ | OVN topology Console plugin, from `bewley-catalog`. Collector disabled in base, enabled on hub — see [its README](config/ovn-recon/README.md) |
