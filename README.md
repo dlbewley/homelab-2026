@@ -42,18 +42,73 @@ the element lists, and adding `overlays/foo/` wherever values differ.
 
 ## Bringing up a cluster
 
+Three steps, and the middle one is easy to miss. Everything in this repo that
+holds a secret reads it from 1Password through External Secrets — including the
+CA that signs the router certificate — so **nothing can be issued until the
+1Password service-account token exists in the cluster.**
+
 ```bash
 oc apply -k bootstrap/
 ```
 
-Wait for the GitOps operator to finish, then hand the cluster over to ArgoCD:
+Installs the GitOps operator and the cluster-admin RBAC. Wait for the operator
+to finish, then hand the cluster to ArgoCD:
 
 ```bash
 oc apply -k clusters/hub
 ```
 
-That is the last manual step. `hub-root` watches `clusters/hub/`, so every later
-change — including changes to the ApplicationSets themselves — arrives via git.
+Operators begin installing. Once External Secrets has created its operand
+namespace, seed the one credential that cannot come from External Secrets
+itself — it is the credential that unlocks every other credential:
+
+```bash
+oc get ns external-secrets   # wait for this to exist
+```
+
+```bash
+oc create secret generic onepassword-connect-token \
+  --namespace external-secrets \
+  --from-file=token=/path/to/service-account-token
+```
+
+The value is the **1Password service-account token** — the credential issued when
+the service account was created, scoped to the `eso` vault. It is not one of the
+items listed below; those are what it is *used to read*. If you keep a copy in
+1Password, substitute `--from-literal=token="$(op read 'op://…')"` with wherever
+you filed it.
+
+From here the cluster converges on its own. Until that secret exists it will sit
+partly built rather than failing loudly: no CA, so no certificates; the router
+keeps its built-in self-signed cert; the OAuth identity providers are silently
+not honored. `kubeadmin` works throughout, so you are never locked out.
+
+### What must already be in 1Password
+
+These live in the `eso` vault and outlive any cluster, so a rebuild finds them
+already there. A **first** build, or a fork, has to create them:
+
+| Item | Holds | Created by |
+|---|---|---|
+| `homelab-ca` | the lab-wide root CA keypair | [`scripts/export-homelab-ca.sh`](scripts/export-homelab-ca.sh) |
+| `keycloak-homelab` | realm client secret and account passwords | [`scripts/create-keycloak-realm-secrets.sh`](scripts/create-keycloak-realm-secrets.sh) |
+| `github-oauth-hub` | GitHub OAuth App credentials | [`scripts/create-github-oauth-secret.sh`](scripts/create-github-oauth-secret.sh) |
+
+`homelab-ca` is the one that matters most on a rebuild. Because the CA is an
+artifact rather than something each cluster generates, a rebuilt cluster
+materialises the **same** root — so every client that already trusts
+`Bewley Homelab CA` keeps working. Losing that item means every client re-trusts
+a new CA.
+
+### Checking it actually converged
+
+```bash
+oc get co            # no cluster operator Degraded
+oc get csv -A | grep -v Succeeded    # ArgoCD will not tell you an operator failed
+```
+
+ArgoCD reporting Synced/Healthy is not sufficient on its own — see
+[docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Conventions
 
