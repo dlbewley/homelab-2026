@@ -12,6 +12,7 @@ the second needs a cluster; the third needs neither.
 | [`verify-channels.sh`](verify-channels.sh) | day 2 — cluster validation | logged-in `oc` + `jq` |
 | [`create-keycloak-realm-secrets.sh`](create-keycloak-realm-secrets.sh) | day 2 — secret bootstrap | `op` + `jq` |
 | [`create-github-oauth-secret.sh`](create-github-oauth-secret.sh) | day 2 — secret bootstrap | `op` + `jq` |
+| [`export-homelab-ca.sh`](export-homelab-ca.sh) | day 2 — secret bootstrap | logged-in `oc` + `op` + `jq` + `openssl` |
 | [`validate.sh`](validate.sh) | repo validation | `kustomize` (or `oc`/`kubectl`) |
 
 That last distinction decides what CI can enforce. `validate.sh` needs nothing
@@ -252,6 +253,32 @@ reaches `op` over a pipe rather than as an assignment statement.
 
 Refuses to overwrite an existing item, and prints the `op item edit` form plus
 the annotation to force the ExternalSecret to re-read after a rotation.
+
+## `export-homelab-ca.sh`
+
+Exports the existing homelab root CA from a cluster into 1Password, so every
+cluster shares one root instead of generating its own.
+
+```bash
+./export-homelab-ca.sh --dry-run
+```
+
+```bash
+./export-homelab-ca.sh
+```
+
+**Run once, before merging the change that switches cert-manager to the
+ExternalSecret.** After that the ExternalSecret is the only source of the CA —
+if 1Password does not already hold it, cert-manager has nothing to issue from.
+
+Exports the *existing* root rather than generating a new one, so anything
+already trusting `Bewley Homelab CA` keeps working.
+
+Refuses to overwrite an existing item, since that would be a CA rotation rather
+than an export. Before publishing it checks `basicConstraints CA:TRUE` and that
+the private key matches the certificate — a mismatched pair distributed to every
+cluster is a failure worth catching locally. The key is never printed and never
+becomes a process argument.
 
 ---
 

@@ -4,13 +4,14 @@ kind: Kustomization
 # Order matters and is expressed with sync waves, because each step depends on
 # the previous one existing:
 #   0  CertManager CR      deploys the operand
-#   5  selfsigned issuer   can sign the root
-#   6  root CA Certificate produces homelab-ca-tls
+#   5  ExternalSecret      materialises homelab-ca-tls from 1Password
 #   7  homelab-ca issuer   consumes that secret
+#   8  TrustManager        operand
+#   9  Bundles             publish the CA into openshift-config
+#  15  Proxy               cluster-wide trust
 resources:
   - certmanager.yaml
-  - clusterissuer-selfsigned.yaml
-  - ca-certificate.yaml
+  - externalsecret-ca.yaml
   - clusterissuer-ca.yaml
   # trust-manager, and the Bundle that puts homelab-ca where OpenShift's OAuth
   # server can find it. See trustmanager.yaml for why this lives here.
