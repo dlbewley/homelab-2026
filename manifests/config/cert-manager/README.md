@@ -33,22 +33,43 @@ Same split as [external-secrets](../external-secrets):
 
 ## The issuer chain
 
-Three objects in `base/`, applied in sync-wave order because each needs the one
-before it:
+Two objects in `base/`, in sync-wave order:
 
 ```
-selfsigned-bootstrap  (ClusterIssuer, wave 5)   can sign anything, trusted by nothing
-        │  signs
+homelab-ca  (ExternalSecret, wave 5)   materialises homelab-ca-tls from 1Password
+        │
         ▼
-homelab-ca            (Certificate, wave 6)     isCA: true → secret homelab-ca-tls
-        │  becomes
-        ▼
-homelab-ca            (ClusterIssuer, wave 7)   ← reference this one
+homelab-ca  (ClusterIssuer,  wave 7)   ← reference this one
 ```
 
-cert-manager cannot conjure a CA from nothing — something must sign the root,
-and a self-signed issuer is that something. `selfsigned-bootstrap` exists only
-for that; **reference `homelab-ca` for everything else.**
+The root is **not generated here.** It lives in 1Password and every cluster
+materialises the same one, so a client trusts `Bewley Homelab CA` once and that
+holds for the whole lab.
+
+This replaced a `selfsigned-bootstrap` ClusterIssuer signing a `homelab-ca`
+Certificate. That needed no manual step, but each cluster produced its own root
+— N clusters, N roots to distribute, which defeats the point of having a CA.
+
+The existing root was **exported, not regenerated**, so anything already
+trusting it keeps working:
+
+```bash
+scripts/export-homelab-ca.sh --dry-run
+scripts/export-homelab-ca.sh
+```
+
+It refuses to overwrite an existing item, checks `basicConstraints CA:TRUE`, and
+verifies the key matches the certificate before publishing — a mismatched pair
+pushed to every cluster would be a bad afternoon.
+
+**The trade-off, stated plainly:** this puts a CA private key in 1Password.
+That is the cost of a shared root — something outside the cluster has to hold
+it. The service account is scoped to the `eso` vault and the key is a
+`CONCEALED` field.
+
+The upside is more than convenience. A CA that exists as an artifact can be
+rebuilt onto a fresh cluster; an in-cluster generated root dies with the cluster
+and every client has to re-trust.
 
 ## Trusting the CA
 
@@ -69,11 +90,9 @@ That is one CA, and it survives cluster rebuilds as long as the
 `homelab-ca-tls` secret does — unlike the per-cluster certs that had to be
 re-extracted each time.
 
-> **Multi-cluster note.** The root is generated per cluster, so a second cluster
-> means a second CA to distribute. The better pattern is one lab-wide CA keypair
-> in 1Password, delivered to each cluster by External Secrets — the machinery is
-> already in place. Left simple here because a self-signed root needs no manual
-> bootstrap step.
+> **This is now lab-wide.** Every cluster materialises the same root from
+> 1Password, so trusting it once covers the whole lab — including clusters that
+> do not exist yet.
 
 ## What `overlays/hub` does
 
@@ -205,13 +224,26 @@ Two things that would deadlock a rebuild, both checked and neither true here:
   Kubernetes applies to every namespace automatically, so it needs no
   pre-labelling.
 
-One genuinely manual prerequisite: the 1Password item behind
-[keycloak](../keycloak) and [oauth](../oauth). It lives outside the cluster and
-survives a rebuild, so a second build finds it already there.
+### The CA is now a hard prerequisite, not a convenience
 
-Note a fresh cluster generates a **new** root CA, so anything that trusted the
-old one must trust the new one. `homelab-2026-4pq.20` moves the CA to 1Password
-precisely to remove that.
+This changed with the move to a shared root. cert-manager depends on External
+Secrets **and** on the 1Password token secret existing. On a genuinely empty
+cluster, until that manual step is done:
+
+- no CA, so no certificate can be issued at all
+- the router keeps its built-in self-signed certificate
+- the OAuth identity providers are not honored
+
+Nothing is damaged and `kubeadmin` still works, but the cluster sits inert
+rather than converging. The order on a rebuild is therefore:
+
+1. `oc apply -k bootstrap/`
+2. create the External Secrets token secret — see [external-secrets](../external-secrets)
+3. `oc apply -k clusters/hub`
+
+The upside is the reason for accepting it: a fresh cluster now materialises the
+**same** root, so nothing has to re-trust anything. Previously a rebuild
+generated a new CA and invalidated every client's trust.
 
 ## Verifying
 

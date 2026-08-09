@@ -49,7 +49,7 @@ After the operator has reconciled `ExternalSecretsConfig` and the
 ```bash
 oc create secret generic onepassword-connect-token \
   --namespace external-secrets \
-  --from-literal=token="$(op read 'op://development/eso-service-account/token')"
+  --from-literal=token="$(op read 'op://eso/<your-service-account-item>/credential')"
 ```
 
 Adjust the `op://` reference to wherever the service account token actually
@@ -76,7 +76,7 @@ Rotation is manual — after rotating in 1Password:
 ```bash
 oc create secret generic onepassword-connect-token \
   --namespace external-secrets \
-  --from-literal=token="$(op read 'op://development/eso-service-account/token')" \
+  --from-literal=token="$(op read 'op://eso/<your-service-account-item>/credential')" \
   --dry-run=client -o yaml | oc replace -f -
 ```
 

@@ -50,3 +50,25 @@ oc get -n openshift-gitops argocd/openshift-gitops -o jsonpath='{.spec.rbac}'
 ```bash
 oc apply -k ../clusters/hub
 ```
+
+**That is not the last manual step.** Once External Secrets has created its
+operand namespace, the 1Password service-account token has to be seeded by hand
+— it is the credential every other credential is fetched with, so it cannot
+itself come from External Secrets:
+
+```bash
+oc create secret generic onepassword-connect-token \
+  --namespace external-secrets \
+  --from-file=token=/path/to/service-account-token
+```
+
+The value is the 1Password **service-account token**, scoped to the `eso` vault
+— the credential issued when the service account was created, not one of the
+items it reads.
+
+Until then the cluster sits partly built rather than failing loudly: no CA, so
+no certificates, and the OAuth identity providers are silently not honored.
+`kubeadmin` keeps working throughout.
+
+See the [root README](../README.md#bringing-up-a-cluster) for the full sequence
+and the 1Password items it depends on.
