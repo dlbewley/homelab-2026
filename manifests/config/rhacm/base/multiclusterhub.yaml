@@ -1,0 +1,30 @@
+---
+# Brings up the ACM hub. This one CR causes a large number of components to be
+# deployed, so expect it to take a while before it reports Running.
+#
+# spec is intentionally empty, matching both the CSV's own alm-examples and the
+# redhat-cop gitops-catalog manifest. MultiClusterHub does expose levers worth
+# knowing about — availabilityConfig: Basic reduces replica counts, which suits
+# a lab, and overrides.components can disable individual pieces — but none were
+# verified against 2.17 here, and the CSV ships no spec descriptors to check
+# against. Defaults first; tune deliberately once it is running and the cost is
+# visible.
+#
+# SkipDryRunOnMissingResource because ArgoCD dry-runs the whole manifest set
+# before syncing, and this CRD does not exist until the CSV installs it. Without
+# it the unknown kind fails the dry-run and aborts the sync. Same annotation and
+# same reason as the NNCP in manifests/config/nmstate.
+#
+# Ordering across Applications is by retry, not sync waves: hub-cfg-rhacm will
+# fail until hub-olm-rhacm has installed the operator, then converge. That is
+# the automated version of the "apply again until no errors" loop the old
+# runbook described.
+apiVersion: operator.open-cluster-management.io/v1
+kind: MultiClusterHub
+metadata:
+  name: multiclusterhub
+  namespace: open-cluster-management
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec: {}
