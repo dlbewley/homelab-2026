@@ -1,0 +1,30 @@
+---
+# Bucket for Thanos metrics, provisioned on ODF's RADOS Gateway.
+#
+# bucketName IS PINNED, not generateBucketName. The reason is a hard constraint,
+# not a preference: the bucket name is published in the OBC's generated
+# ConfigMap, never in its generated Secret, and ESO's kubernetes provider reads
+# Secrets only — its provider schema is auth/authRef/remoteNamespace/server, with
+# no resource selector. A generated name would therefore be unreadable by the
+# ExternalSecret that builds thanos.yaml. Pinning it makes the name a constant
+# both git and the ExternalSecret can rely on.
+#
+# Verified on hub 2026-08-13 with a throwaway OBC: a pinned bucketName on this
+# StorageClass reaches phase Bound and reports BUCKET_NAME unchanged.
+#
+# RGW rather than NooBaa (both StorageClasses exist here) — the OBC API is the
+# same either way, the StorageClass only decides which provisioner services it.
+# RGW keeps the NooBaa core and endpoint pods out of the metrics data path.
+#
+# Worth stating plainly: this bucket sits on the same Ceph cluster as the PVCs
+# holding the metrics it backs. One failure domain, not two.
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: thanos-object-storage-obc
+  namespace: open-cluster-management-observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  bucketName: homelab-hub-thanos
+  storageClassName: ocs-storagecluster-ceph-rgw

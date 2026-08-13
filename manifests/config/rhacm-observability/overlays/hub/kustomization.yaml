@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  # Names a StorageClass, so it is cluster-specific.
+  - obc.yaml
+  # Names the bucket, the S3 endpoint and the TLS posture — all consequences of
+  # the OBC above.
+  - externalsecret-thanos.yaml
+  # Names disk sizes and a StorageClass.
+  - multiclusterobservability.yaml
