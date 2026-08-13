@@ -100,7 +100,8 @@ pods out of it.
 The single most miscopyable field here. In Thanos:
 
 - `insecure: true` → **speak plain HTTP instead of HTTPS**
-- `http_config.tls_config.insecure_skip_verify: true` → skip certificate checks
+- `http_config.insecure_skip_verify: true` → skip certificate checks (and see
+  below — the *nested* spelling of this is a trap)
 
 They are different settings. The catalog sets `insecure: true`, so the catalog
 talks **plaintext** to its S3 endpoint.
@@ -116,6 +117,29 @@ issuer=CN=openshift-service-serving-signer@1785106755
 So `insecure: false` here and traffic is encrypted. Verification is skipped only
 because that issuer is the service-serving CA, published as a ConfigMap, and ESO
 cannot read ConfigMaps to turn it into the Secret a `ca_file` would need.
+
+### The skip-verify field is the flat one
+
+Thanos 0.41 accepts both spellings, but the S3 provider's transport only honours
+the flat one:
+
+| | |
+|---|---|
+| `http_config.insecure_skip_verify` | **honoured** |
+| `http_config.tls_config.insecure_skip_verify` | parsed, then ignored |
+
+The nested form produces no parse error and no warning — it simply does nothing,
+and every component then fails with `x509: certificate signed by unknown
+authority` while the config on screen looks right.
+
+This was shipped wrong in #28. `thanos-store` crashlooped; `compact` hit the
+identical error but only logged retries, so the store shards were the visible
+symptom rather than the cause. If you see that x509 error, check this field
+before suspecting the bucket, the credentials or the OBC — all three were
+healthy the whole time.
+
+Confirmed by running `thanos tools bucket ls` inside a running pod against both
+forms: flat succeeds, nested fails.
 
 **To verify properly later:** put the service CA in a Secret, point
 `storageConfig.metricObjectStorage.tlsSecretName` / `tlsSecretMountPath` at it,
