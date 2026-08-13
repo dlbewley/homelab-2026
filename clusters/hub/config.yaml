@@ -71,7 +71,7 @@ spec:
           # Judge it by `oc get multiclusterhub`, not by ArgoCD.
           - name: rhacm
             namespace: open-cluster-management
-            path: manifests/config/rhacm/base
+            path: manifests/config/rhacm/overlays/hub
           # Adds Keycloak as an identity provider. Depends on the realm
           # (hub-cfg-keycloak) and on the trust-manager Bundle in
           # hub-cfg-cert-manager putting homelab-ca into openshift-config.
