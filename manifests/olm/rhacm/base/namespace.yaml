@@ -1,0 +1,16 @@
+---
+# Namespace name comes from the operator's own suggestion, not invented:
+#   oc get packagemanifest advanced-cluster-management -n openshift-marketplace \
+#     -o jsonpath='{.status.channels[0].currentCSVDesc.annotations.operatorframework\.io/suggested-namespace}'
+#   -> open-cluster-management
+#
+# Unlike cert-manager or external-secrets there is no operator/operand split:
+# the operator installs OwnNamespace, and MultiClusterHub lives here too.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: open-cluster-management
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

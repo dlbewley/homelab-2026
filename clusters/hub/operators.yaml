@@ -65,6 +65,11 @@ spec:
           - name: ovn-recon
             namespace: ovn-recon
             path: manifests/olm/ovn-recon/base
+          # OwnNamespace ONLY — the most restrictive install mode here, so the
+          # OperatorGroup must set targetNamespaces.
+          - name: rhacm
+            namespace: open-cluster-management
+            path: manifests/olm/rhacm/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'

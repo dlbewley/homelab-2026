@@ -1,0 +1,23 @@
+---
+# Channel verified against the live hub cluster on 2026-08-09:
+#   oc get packagemanifest advanced-cluster-management -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> release-2.17  (advanced-cluster-management.v2.17.0)
+#
+# The channel is version-pinned, so this does not float across ACM releases.
+# Bumping it is a deliberate, reviewable change — read the ACM upgrade notes
+# first, since MultiClusterHub migrates its own components on upgrade.
+# Re-check with scripts/verify-channels.sh after a cluster upgrade.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: advanced-cluster-management
+  namespace: open-cluster-management
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: advanced-cluster-management
+  channel: release-2.17
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

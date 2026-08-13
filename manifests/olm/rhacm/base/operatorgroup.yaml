@@ -1,0 +1,21 @@
+---
+# targetNamespaces is REQUIRED. This operator supports OwnNamespace ONLY —
+# not SingleNamespace, not AllNamespaces:
+#   oc get packagemanifest advanced-cluster-management -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> OwnNamespace
+#
+# An empty `spec: {}` would request AllNamespaces and fail resolution the way
+# metallb did. This is the most restrictive install mode of any operator in this
+# repo. scripts/verify-channels.sh checks it against the pinned channel.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: rhacm-operatorgroup
+  namespace: open-cluster-management
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  targetNamespaces:
+    - open-cluster-management
