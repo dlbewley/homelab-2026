@@ -49,6 +49,65 @@ disable individual pieces. None were verified against 2.17 here, and the CSV
 ships no spec descriptors to check against, so defaults come first. Tune once it
 is running and the cost is visible rather than guessing up front.
 
+## Search database persistence
+
+The Search service keeps its index in a PostgreSQL database. By default that
+runs on ephemeral storage, so the index is lost on every pod restart and has to
+be rebuilt from every managed cluster.
+
+`search.yaml` gives it a 10Gi volume:
+
+```yaml
+spec:
+  dbStorage:
+    size: 10Gi
+```
+
+### Why only `dbStorage` is declared
+
+The `Search` CR named `search-v2-operator` is created by ACM itself — it is not
+ours to own. So this declares the one field we care about and lets server-side
+apply merge it, the same partial-apply pattern as the
+[StorageClass defaults](../odf), the `IngressController`, and `proxy/cluster`.
+
+That also makes it correct either way: if ACM has already created the CR, SSA
+merges `dbStorage` into it; if it has not, SSA creates it with just that field,
+which the CRD permits since `spec.dbStorage` has no required properties.
+
+`Prune=false,Delete=false` because deleting this file must never remove ACM's
+`Search` CR and take the search service down with it.
+
+### The storage class is omitted on purpose
+
+That is permitted — from the CRD schema:
+
+| Field | Type | Required | Default |
+|---|---|---|---|
+| `spec.dbStorage.size` | quantity | no | **`10Gi`** |
+| `spec.dbStorage.storageClassName` | string | no | none |
+
+With no class named, the PVC is created without one and Kubernetes uses the
+**cluster default** — which [manifests/config/odf](../odf) sets to
+`ocs-storagecluster-ceph-rbd`.
+
+Naming the class here would hard-code an ODF-specific value into a base that is
+otherwise cluster-agnostic, and would silently disagree with any cluster whose
+default differs. The one thing to be aware of: a cluster with **no** default
+StorageClass leaves the PVC `Pending` forever, and the search pod waits with it.
+
+`size` is set explicitly even though `10Gi` is already the CRD default, so the
+intent lives in git rather than being inherited from a schema that could change
+between releases.
+
+### Verifying
+
+```bash
+oc get pvc -n open-cluster-management
+```
+
+Look for the search database PVC `Bound` on `ocs-storagecluster-ceph-rbd`. A
+`Pending` PVC means no default StorageClass, not an ACM problem.
+
 ## Expect it to be slow, and judge it by the right thing
 
 One CR deploys a large number of components. `hub-cfg-rhacm` will also fail its

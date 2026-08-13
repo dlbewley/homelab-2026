@@ -3,5 +3,8 @@ kind: Kustomization
 
 # Nothing cluster-specific yet, so there is no overlay. Credentials
 # (homelab-2026-4pq.25) and observability (homelab-2026-4pq.24) will need one.
+# Sync waves order these: MultiClusterHub at 10, then Search at 20 once the
+# search component has registered its CRD.
 resources:
   - multiclusterhub.yaml
+  - search.yaml
