@@ -9,7 +9,7 @@ credentials are deliberately separate.
 | | Issue |
 |---|---|
 | operator + `MultiClusterHub` | this component |
-| observability (`MultiClusterObservability`) | `homelab-2026-4pq.24` |
+| observability (`MultiClusterObservability`) | [rhacm-observability](../rhacm-observability) |
 | cloud provider / pull secret / SSH / OCM credentials | `homelab-2026-4pq.25` |
 
 Splitting them means ACM is usable sooner, and the two expensive decisions —

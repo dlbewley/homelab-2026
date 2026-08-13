@@ -1,0 +1,54 @@
+---
+# Thanos-backed metrics across managed clusters.
+#
+# EVERY STORAGE SIZE IS SET EXPLICITLY, AND THAT IS THE POINT OF THIS FILE.
+# The CRD carries defaults — compact 100Gi, receive 100Gi, store 10Gi, rule 1Gi,
+# alertmanager 1Gi — so omitting storageConfig does not get you small PVCs, it
+# gets you 212Gi. These are also per-replica, so the real figure is higher still.
+# Measured on hub 2026-08-13, Ceph offers roughly 1024GiB usable; the defaults
+# would claim a fifth of the cluster to observe a hub that currently observes
+# only itself.
+#
+# This is the same trap as Search's dbStorage in manifests/config/rhacm: a field
+# left unset does not mean "no opinion", it means "the CRD's opinion". State the
+# values.
+#
+# Sized for a hub watching one or two clusters. compact and receive are cut
+# hardest because they scale with retention and ingest rather than cluster count;
+# store, rule and alertmanager are already small at their defaults. Revisit when
+# homelab-2026-4pq.9 adds a spoke and real consumption is visible — that is a
+# better moment to size than guessing now.
+#
+# storageClass is named rather than relying on the cluster default, for the same
+# reason it is named on Search: a default that changes silently relocates data.
+#
+# imagePullPolicy is deliberately unset. The catalog pins it to Always, which
+# defeats image caching for no benefit on an operator whose channel is pinned.
+#
+# SkipDryRunOnMissingResource because this CRD arrives with ACM's observability
+# component, after MultiClusterHub reports Running — a separate Application, so
+# ordering is by retry rather than sync wave.
+apiVersion: observability.open-cluster-management.io/v1beta2
+kind: MultiClusterObservability
+metadata:
+  name: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  # Cuts replica counts on the read and write paths. Storage sizes below are
+  # per-replica, so this compounds with them.
+  instanceSize: minimal
+  observabilityAddonSpec:
+    enableMetrics: true
+    interval: 300
+  storageConfig:
+    metricObjectStorage:
+      name: thanos-object-storage
+      key: thanos.yaml
+    storageClass: ocs-storagecluster-ceph-rbd
+    compactStorageSize: 50Gi
+    receiveStorageSize: 20Gi
+    storeStorageSize: 10Gi
+    ruleStorageSize: 1Gi
+    alertmanagerStorageSize: 1Gi

@@ -1,0 +1,9 @@
+---
+# ACM requires this exact namespace name; MultiClusterObservability looks for
+# its object-storage Secret here and nowhere else.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: open-cluster-management-observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

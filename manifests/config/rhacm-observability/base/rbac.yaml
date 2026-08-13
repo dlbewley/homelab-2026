@@ -1,0 +1,51 @@
+---
+# Identity External Secrets assumes to read the OBC-generated credentials.
+#
+# This exists to REPLACE the catalog's setup Job, whose ClusterRole granted
+# secrets get/list/create/patch at CLUSTER scope to a helper ServiceAccount —
+# effectively read-any-secret-in-the-cluster. This is a namespaced Role limited
+# by resourceNames to the single Secret the ObjectBucketClaim generates.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: thanos-obc-reader
+  namespace: open-cluster-management-observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: thanos-obc-reader
+  namespace: open-cluster-management-observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  # Exactly one Secret, get only. The name matches the ObjectBucketClaim in the
+  # overlay: the OBC provisioner names the generated Secret after the claim.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["thanos-object-storage-obc"]
+    verbs: ["get"]
+  # ESO validates a kubernetes-provider store by asking what it is allowed to
+  # do. Without this the SecretStore never reaches Ready and the failure message
+  # does not mention RBAC.
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["selfsubjectrulesreviews"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: thanos-obc-reader
+  namespace: open-cluster-management-observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: thanos-obc-reader
+subjects:
+  - kind: ServiceAccount
+    name: thanos-obc-reader
+    namespace: open-cluster-management-observability

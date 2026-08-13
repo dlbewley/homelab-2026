@@ -112,4 +112,5 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | oauth | — | ✅ | Keycloak (`claim`) and GitHub (`add`, org `dwnwrd`) identity providers; group membership stays static in `bootstrap/rbac.yaml` — see [its README](config/oauth/README.md) |
 | bewley-catalog | ✅ | — | `CatalogSource` for self-published operators. Not an operator install — no namespace, OperatorGroup or Subscription |
 | ovn-recon | ✅ | ✅ | OVN topology Console plugin, from `bewley-catalog`. Collector disabled in base, enabled on hub — see [its README](config/ovn-recon/README.md) |
-| rhacm | ✅ | ✅ | Operator + `MultiClusterHub`, plus 10Gi persistent storage for the Search database. **OwnNamespace-only**. Observability and credentials are separate issues — see [its README](config/rhacm/README.md) |
+| rhacm | ✅ | ✅ | Operator + `MultiClusterHub`, plus 10Gi persistent storage for the Search database. **OwnNamespace-only**. Credentials are a separate issue — see [its README](config/rhacm/README.md) |
+| rhacm-observability | — | ✅ | Config-only. `MultiClusterObservability` on a Thanos bucket provisioned by an ObjectBucketClaim on ODF's RGW; `thanos.yaml` composed by an ExternalSecret rather than the catalog's setup Job. Every storage size set explicitly — the CRD defaults total 212Gi — see [its README](config/rhacm-observability/README.md) |
