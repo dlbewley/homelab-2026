@@ -51,62 +51,72 @@ is running and the cost is visible rather than guessing up front.
 
 ## Search database persistence
 
-The Search service keeps its index in a PostgreSQL database. By default that
-runs on ephemeral storage, so the index is lost on every pod restart and has to
-be rebuilt from every managed cluster.
+The Search service keeps its index in PostgreSQL. By default that runs on
+**ephemeral** storage, so the index is lost on every pod restart and rebuilt
+from every managed cluster.
 
-`search.yaml` gives it a 10Gi volume:
+### `storageClassName` is the switch, not `size`
 
-```yaml
-spec:
-  dbStorage:
-    size: 10Gi
+This is the part the CRD does not tell you. It marks neither field required and
+defaults `size` to `10Gi`, which reads as though setting a size is enough. It is
+not. From the operator's own source
+([`controllers/common.go`, `getPostgresVolume`](https://github.com/stolostron/search-v2-operator/blob/main/controllers/common.go)):
+
+```go
+storageClass := instance.Spec.DBStorage.StorageClassName
+if storageClass != "" { ... PersistentVolumeClaim ... }
+return ... EmptyDir ...
 ```
+
+An empty `storageClassName` means `emptyDir`, whatever `size` says.
+
+Observed on this cluster before the change: `spec.dbStorage.size` was **already**
+`10Gi`, defaulted by the CRD, and the pod still mounted
+
+```
+postgresdb: {emptyDir: {}}
+```
+
+So the class must be named explicitly — it cannot be left to the cluster
+default. That is also why this lives in `overlays/hub` rather than `base`:
+naming a StorageClass is a cluster-specific decision.
+
+The operator derives the PVC name as `<storageClassName>-search`, so this
+produces `ocs-storagecluster-ceph-rbd-search`.
 
 ### Why only `dbStorage` is declared
 
-The `Search` CR named `search-v2-operator` is created by ACM itself — it is not
-ours to own. So this declares the one field we care about and lets server-side
-apply merge it, the same partial-apply pattern as the
-[StorageClass defaults](../odf), the `IngressController`, and `proxy/cluster`.
+The `Search` CR is created and applied by `multiclusterhub-operator`, not by us.
+This declares the one field we care about and lets server-side apply merge it —
+the same partial-apply pattern as the [StorageClass defaults](../odf), the
+`IngressController` and `proxy/cluster`.
 
-That also makes it correct either way: if ACM has already created the CR, SSA
-merges `dbStorage` into it; if it has not, SSA creates it with just that field,
-which the CRD permits since `spec.dbStorage` has no required properties.
+Checked before relying on it: `multiclusterhub-operator` owns `f:dbStorage` as an
+**empty object** — the field itself but no leaves under it — so setting
+`storageClassName` takes an unowned leaf rather than fighting MCH for it. A
+server-side apply dry-run against the live CR confirms no conflict, and that
+`deployments` and `tolerations` survive the merge.
 
-`Prune=false,Delete=false` because deleting this file must never remove ACM's
-`Search` CR and take the search service down with it.
-
-### The storage class is omitted on purpose
-
-That is permitted — from the CRD schema:
-
-| Field | Type | Required | Default |
-|---|---|---|---|
-| `spec.dbStorage.size` | quantity | no | **`10Gi`** |
-| `spec.dbStorage.storageClassName` | string | no | none |
-
-With no class named, the PVC is created without one and Kubernetes uses the
-**cluster default** — which [manifests/config/odf](../odf) sets to
-`ocs-storagecluster-ceph-rbd`.
-
-Naming the class here would hard-code an ODF-specific value into a base that is
-otherwise cluster-agnostic, and would silently disagree with any cluster whose
-default differs. The one thing to be aware of: a cluster with **no** default
-StorageClass leaves the PVC `Pending` forever, and the search pod waits with it.
-
-`size` is set explicitly even though `10Gi` is already the CRD default, so the
-intent lives in git rather than being inherited from a schema that could change
-between releases.
+`Prune=false,Delete=false` so removing this file can never delete ACM's `Search`
+CR and take the search service down.
 
 ### Verifying
+
+The proof is the volume changing on the `search-postgres` pod:
+
+```bash
+oc get deploy search-postgres -n open-cluster-management \
+  -o jsonpath='{range .spec.template.spec.volumes[?(@.name=="postgresdb")]}{@}{end}'
+```
+
+Before: `{"emptyDir":{},"name":"postgresdb"}`.
+After: a `persistentVolumeClaim` naming `ocs-storagecluster-ceph-rbd-search`.
 
 ```bash
 oc get pvc -n open-cluster-management
 ```
 
-Look for the search database PVC `Bound` on `ocs-storagecluster-ceph-rbd`. A
-`Pending` PVC means no default StorageClass, not an ACM problem.
+A `Pending` PVC means the StorageClass named here does not exist on the cluster.
 
 ## Expect it to be slow, and judge it by the right thing
 

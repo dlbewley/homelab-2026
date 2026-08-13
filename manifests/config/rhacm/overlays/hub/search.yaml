@@ -1,0 +1,50 @@
+---
+# Persistent storage for the Search service's PostgreSQL database.
+#
+# STORAGECLASSNAME IS THE SWITCH, NOT size. This is the whole point of the file
+# and it is not obvious from the CRD, which marks neither field required and
+# defaults size to 10Gi. From the operator's own source
+# (stolostron/search-v2-operator, controllers/common.go, getPostgresVolume):
+#
+#   storageClass := instance.Spec.DBStorage.StorageClassName
+#   if storageClass != "" {  ... PersistentVolumeClaim ... }
+#   return ... EmptyDir ...
+#
+# An empty storageClassName means emptyDir, whatever size says. Observed on this
+# cluster before the change: spec.dbStorage.size was already "10Gi" — defaulted
+# by the CRD — and the search-postgres pod still mounted
+#   postgresdb: {emptyDir: {}}
+# So the index was being rebuilt from every managed cluster on each restart.
+#
+# The class is therefore named explicitly and cannot be left to the cluster
+# default. That is also why this lives in overlays/hub rather than base: naming a
+# StorageClass is a cluster-specific decision.
+#
+# The operator derives the PVC name as <storageClassName>-search, so this
+# produces ocs-storagecluster-ceph-rbd-search.
+#
+# WHY ONLY dbStorage IS DECLARED
+# The Search CR is created and applied by multiclusterhub-operator, not by us.
+# This declares the one field we care about and lets server-side apply merge it,
+# the same partial-apply pattern as the StorageClass defaults, IngressController
+# and proxy/cluster. Checked before relying on it: multiclusterhub-operator owns
+# f:dbStorage as an empty object — the field itself but no leaves under it — so
+# setting storageClassName takes an unowned leaf rather than fighting MCH for it.
+#
+# Prune=false,Delete=false so removing this file can never delete ACM's Search CR
+# and take the search service down.
+#
+# SkipDryRunOnMissingResource because the Search CRD does not exist until ACM
+# deploys the search component, after MultiClusterHub reports Running.
+apiVersion: search.open-cluster-management.io/v1alpha1
+kind: Search
+metadata:
+  name: search-v2-operator
+  namespace: open-cluster-management
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true,Prune=false,Delete=false
+spec:
+  dbStorage:
+    size: 10Gi
+    storageClassName: ocs-storagecluster-ceph-rbd
