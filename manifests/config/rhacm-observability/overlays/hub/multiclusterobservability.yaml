@@ -36,8 +36,12 @@ metadata:
     argocd.argoproj.io/sync-wave: "10"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  # Cuts replica counts on the read and write paths. Storage sizes below are
-  # per-replica, so this compounds with them.
+  # Sizes the read and write paths. NOTE: this does NOT cut replica counts -
+  # that is spec.advanced.<component>.replicas, which is left unset here. With
+  # advanced unset the operator runs 6 receive, 3 store, 3 rule and 3
+  # alertmanager replicas, and because the sizes below are per-replica the real
+  # total is 206Gi rather than the ~82Gi the per-disk numbers suggest. See
+  # homelab-2026-4pq.26 and the component README.
   instanceSize: minimal
   observabilityAddonSpec:
     enableMetrics: true
