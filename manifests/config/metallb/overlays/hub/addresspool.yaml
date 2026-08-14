@@ -1,21 +1,51 @@
 ---
-# The machine network is 192.168.4.0/24. Known occupants: the API VIP
-# (192.168.4.17), the Apps VIP (192.168.4.16) and DHCP-assigned node addresses
-# observed in the .47-.142 range (regenerate with scripts/collect-nics.sh).
+# LoadBalancer addresses for the hub, on the machine network 192.168.4.0/24.
 #
-# The range below is a guess that avoids those, NOT something I could verify —
-# it must not overlap your router's DHCP scope. Confirm the scope, then
-# uncomment these resources in kustomization.yaml.
+# THE RANGE MUST NOT INTERSECT THE ROUTER'S DHCP SCOPE. Nothing in the cluster
+# can detect that overlap: MetalLB will happily answer ARP for an address DHCP
+# has already leased, and the symptom is two hosts claiming one IP rather than
+# an error anyone reports. The range below was confirmed against the router
+# scope by hand on 2026-08-14 — re-confirm it if the scope is ever widened.
+#
+# Occupants on this subnet, verified on the cluster 2026-08-14:
+#   192.168.4.1     default gateway
+#   192.168.4.16    Ingress VIP
+#   192.168.4.17    API VIP
+#   .40 .47 .72 .98 .104 .110 .114 .128 .142 .182   nodes (DHCP)
+#
+# Node addresses are DHCP-assigned and drift on renewal, so they are NOT a safe
+# basis for choosing a range — an earlier revision of this file assumed nodes
+# topped out at .142 and cnv-2 has since appeared at .182. The scope is the
+# authority, not the observed high-water mark.
+#
+# .224-.253 rather than a /27: 192.168.4.224/27 would be .224-.255, which
+# includes the broadcast address. Writing it as a range keeps .254 and .255 out.
+# An ARP/ping sweep of .150-.254 from ctrl-1 found nothing live except .182.
+#
+# The pool stays inside 192.168.4.0/24 because L2Advertisement answers ARP on
+# the nodes' own broadcast domain. A pool in another subnet would need BGP.
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
 metadata:
   name: lab-pool
   namespace: metallb-system
 spec:
+  # autoAssign gives an address to ANY Service of type LoadBalancer that does not
+  # request a specific pool. On first sync that includes four NooBaa Services
+  # already pending in openshift-storage — s3, sts, iam and vectors — which will
+  # become reachable from the LAN immediately. That is exposure, not just
+  # capacity: NooBaa's S3 endpoint is already served over the Ingress VIP by the
+  # RGW route, so those four may be redundant. Set autoAssign: false and use
+  # metallb.universe.tf/address-pool on individual Services to allocate
+  # deliberately instead.
   autoAssign: true
   addresses:
-    - 192.168.4.200-192.168.4.230
+    - 192.168.4.224-192.168.4.253
 ---
+# L2 mode: one elected node answers ARP for each address, so failover is a new
+# ARP announcement rather than a routing change. No switch configuration needed,
+# which is why this suits a homelab; the tradeoff is that all traffic for a
+# given address lands on a single node.
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
 metadata:
