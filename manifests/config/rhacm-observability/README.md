@@ -43,11 +43,40 @@ What is set here instead, sized for a hub watching one or two clusters:
 | `storeStorageSize` | 10Gi | already small at its default |
 | `ruleStorageSize` | 1Gi | already small |
 | `alertmanagerStorageSize` | 1Gi | already small |
-| `instanceSize: minimal` | | cuts replica counts, compounding with the above |
+| `instanceSize: minimal` | | sizes the read and write paths. Does **not** cut replica counts — see below |
 | `storageClass` | named | a silently changing default relocates data |
 
 Revisit when `homelab-2026-4pq.9` adds a spoke and real consumption is visible.
 That is a better moment to size than guessing now.
+
+### `instanceSize` is not the replica lever
+
+Replica counts come from `spec.advanced.<component>.replicas`, not from
+`instanceSize`. The CRD exposes `advanced.{alertmanager,compact,grafana,
+observatoriumAPI,query,queryFrontend,queryFrontendMemcached,rbacQueryProxy,
+receive,rule,store,storeMemcached}`, each with its own `.replicas`.
+
+This matters because the sizes above are **per-replica**. Measured on hub
+2026-08-14 with `spec.advanced` unset, the totals are:
+
+| | replicas | each | total |
+|---|---|---|---|
+| receive | 6 | 20Gi | 120Gi |
+| compact | 1 | 50Gi | 50Gi |
+| store | 3 | 10Gi | 30Gi |
+| rule | 3 | 1Gi | 3Gi |
+| alertmanager | 3 | 1Gi | 3Gi |
+| | | | **206Gi** |
+
+The per-disk sizing still did its job — at CRD defaults with these same replica
+counts it would be 736Gi. But 206Gi is not the ~82Gi the per-disk numbers alone
+suggest. Tracked in `homelab-2026-4pq.26`.
+
+> Separately, ACM's default of **three store shards** triggers an upstream defect:
+> once the shards' block label sets converge, `thanos-query` returns HTTP 500 for
+> its whole `/metrics` page and Prometheus cannot scrape it, while
+> `MultiClusterObservability` still reports `Ready=True`. Diagnosis and repro in
+> `homelab-2026-4pq.28`. Deliberately not worked around here.
 
 ## The setup Job is deliberately not adopted
 
