@@ -3,6 +3,6 @@ kind: Kustomization
 
 resources:
   - ../../base
-  # Uncomment after confirming the range does not collide with the DHCP scope
-  # on 192.168.4.0/24. See the comment at the top of the file.
-  # - addresspool.yaml
+  # 192.168.4.224-253, confirmed against the router's DHCP scope on 2026-08-14.
+  # See the comment at the top of the file before changing the range.
+  - addresspool.yaml
