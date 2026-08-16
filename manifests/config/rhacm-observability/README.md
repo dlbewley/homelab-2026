@@ -75,8 +75,13 @@ suggest. Tracked in `homelab-2026-4pq.26`.
 > Separately, ACM's default of **three store shards** triggers an upstream defect:
 > once the shards' block label sets converge, `thanos-query` returns HTTP 500 for
 > its whole `/metrics` page and Prometheus cannot scrape it, while
-> `MultiClusterObservability` still reports `Ready=True`. Diagnosis and repro in
-> `homelab-2026-4pq.28`. Deliberately not worked around here.
+> `MultiClusterObservability` still reports `Ready=True`.
+>
+> Tracked as [OCPBUGS-111077](https://redhat.atlassian.net/browse/OCPBUGS-111077).
+> Deliberately **not** worked around here — `spec.advanced.store.replicas: 1`
+> would sidestep it, but carrying that in git would hide a defect affecting every
+> default ACM observability install. Check the tracker before changing this: if it
+> is fixed upstream, the fix is an operator upgrade rather than a manifest change.
 
 ## The setup Job is deliberately not adopted
 
