@@ -94,6 +94,68 @@ as [rhacm](../rhacm). That is why the CR carries
 oc get forkliftcontroller -n openshift-mtv
 ```
 
+## The vSphere source provider
+
+`overlays/hub` adds the lab vCenter as a migration source: a `Provider` plus the
+`ExternalSecret` that feeds it.
+
+### MTV's key names differ from ACM's
+
+| MTV key | 1Password `vcenter/...` |
+|---|---|
+| `user` | `username` — **note the rename** |
+| `password` | `password` |
+| `cacert` | `cacertificate` |
+
+The [ACM credential](../rhacm) holds the same values under `username`. The two
+Secrets are **not** interchangeable; ESO does the renaming, which is why both can
+share one 1Password item.
+
+### No thumbprint, deliberately
+
+MTV also accepts `thumbprint` — the SHA-1 of the certificate vCenter serves — but
+it is **not required** when a valid CA is supplied and `insecureSkipVerify` is
+false. Verified on hub 2026-08-16 with a throwaway Provider carrying no
+thumbprint:
+
+```
+ConnectionTestSucceeded=True   Connection test, succeeded.
+InventoryCreated=True          The inventory has been loaded.
+```
+
+This matters because a thumbprint pins the **leaf** certificate:
+
+| | expires |
+|---|---|
+| leaf (what a thumbprint pins) | 2028-05-11 |
+| CA (what `cacert` trusts) | 2036-05-06 |
+
+Pinning the leaf would plant a migration-breaking expiry two years earlier than
+necessary, for no security gain over verifying against the CA.
+
+`insecureSkipVerify` is explicitly `"false"` rather than omitted — the
+certificate is ignored entirely when it is true, which would silently make
+`cacert` decorative.
+
+### Judge the Provider by its conditions
+
+A Provider with bad credentials, a wrong URL or an untrusted certificate is still
+a valid object, so `hub-cfg-mtv` reports Synced either way.
+
+```bash
+oc get provider vsphere-lab -n openshift-mtv \
+  -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.message}{"\n"}{end}'
+```
+
+`ConnectionTestSucceeded` and `InventoryCreated` are the ones that mean it works.
+A TLS/certificate error rather than an authentication error is the tell that the
+CA is wrong rather than the credentials.
+
+> `url` must be the **SDK** endpoint (`/sdk`), not the UI you log into. Pointing
+> it at the bare hostname produces a Provider that exists and never connects.
+> `spec.type` has no enum in the CRD, so a typo there is accepted by the API
+> server and only surfaces as a Provider that will not connect.
+
 ## Prerequisite already met
 
 MTV migrates *onto* OpenShift Virtualization, which this cluster already runs —

@@ -1,0 +1,33 @@
+---
+# The lab vCenter as an MTV migration source.
+#
+# url must be the SDK endpoint, not the UI you log into. Pointing it at
+# https://vcenter.lab.bewley.net alone produces a Provider that exists and never
+# connects.
+#
+# type is `vsphere`. The CRD carries no enum on this field, so a typo is accepted
+# by the API server and only surfaces later as a Provider that will not connect.
+#
+# JUDGE IT BY ITS CONDITIONS, NOT BY ARGOCD. A Provider with bad credentials, a
+# wrong URL or an untrusted certificate is still a valid object, so hub-cfg-mtv
+# reports Synced either way:
+#   oc get provider vsphere-lab -n openshift-mtv \
+#     -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.message}{"\n"}{end}'
+# ConnectionTestSucceeded and InventoryCreated are the ones that mean it works.
+#
+# A TLS/certificate error rather than an authentication error is the tell that
+# the CA is wrong, not the credentials.
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Provider
+metadata:
+  name: vsphere-lab
+  namespace: openshift-mtv
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  type: vsphere
+  url: https://vcenter.lab.bewley.net/sdk
+  secret:
+    name: vsphere-lab
+    namespace: openshift-mtv
