@@ -61,6 +61,11 @@ spec:
           # Depends on cloudnative-pg and cert-manager being installed, and
           # on the homelab-ca issuer being Ready. Those are separate
           # Applications, so ordering here is by retry, not sync wave.
+          # Config-only: satisfies the cnpg-pull-secret reference in the
+          # operator's own Deployment. The Postgres Cluster lives with keycloak.
+          - name: cloudnative-pg
+            namespace: cnpg-system
+            path: manifests/config/cloudnative-pg/base
           - name: keycloak
             namespace: keycloak
             path: manifests/config/keycloak/overlays/hub

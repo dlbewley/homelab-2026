@@ -107,7 +107,7 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | virtualization | ✅ | ✅ | Workloads pinned to `node-role.kubernetes.io/virtualization` |
 | external-secrets | ✅ | ✅ | `onepasswordSDK` provider against the `eso` vault. The service-account token secret is a deliberate manual step — see [its README](config/external-secrets/README.md) |
 | cert-manager | ✅ | ✅ | Private CA `homelab-ca`; wildcard cert on the router; trust-manager (**Technology Preview**) distributes the CA to `openshift-config` and the cluster trust bundle — see [its README](config/cert-manager/README.md) |
-| cloudnative-pg | ✅ | — | Postgres operator, AllNamespaces so it can manage the Cluster in `keycloak` |
+| cloudnative-pg | ✅ | ✅ | Postgres operator, AllNamespaces so it can manage the Cluster in `keycloak`. Config is only the `cnpg-pull-secret` its own Deployment references — the Postgres `Cluster` belongs to keycloak |
 | keycloak | ✅ | ✅ | RHBK + CloudNativePG database, passthrough TLS from `homelab-ca`, and the `homelab` realm with the `ocp-hub` OIDC client — see [its README](config/keycloak/README.md) |
 | oauth | — | ✅ | Keycloak (`claim`) and GitHub (`add`, org `dwnwrd`) identity providers; group membership stays static in `bootstrap/rbac.yaml` — see [its README](config/oauth/README.md) |
 | bewley-catalog | ✅ | — | `CatalogSource` for self-published operators. Not an operator install — no namespace, OperatorGroup or Subscription |
