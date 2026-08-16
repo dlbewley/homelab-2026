@@ -69,6 +69,11 @@ spec:
           - name: keycloak
             namespace: keycloak
             path: manifests/config/keycloak/overlays/hub
+          # Enables the internal registry, which bare-metal installs leave
+          # Removed, on a ReadWriteMany CephFS volume.
+          - name: image-registry
+            namespace: openshift-image-registry
+            path: manifests/config/image-registry/overlays/hub
           - name: ovn-recon
             namespace: ovn-recon
             path: manifests/config/ovn-recon/overlays/hub

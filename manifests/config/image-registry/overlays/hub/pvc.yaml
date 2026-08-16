@@ -1,0 +1,28 @@
+---
+# Backing storage for the internal registry.
+#
+# CEPHFS, NOT RBD, AND THE ACCESS MODE IS THE REASON. The registry runs more than
+# one replica, and every replica mounts the same volume, so it needs
+# ReadWriteMany. ocs-storagecluster-ceph-rbd — the cluster default — is
+# ReadWriteOnce: a second replica would sit Pending forever with the first one
+# holding the volume. This is exactly why the StorageClass is named rather than
+# defaulted, the same lesson as Search's dbStorage.
+#
+# 100Gi against ~986GiB usable Ceph measured 2026-08-16. The registry stores
+# image layers, and the immediate consumer is MTV's VDDK image plus whatever
+# builds land here; 100Gi is generous for that and cheap to grow, since CephFS
+# supports expansion in place — unlike shrinking, which it does not.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry-storage-pvc
+  namespace: openshift-image-registry
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ocs-storagecluster-cephfs
+  resources:
+    requests:
+      storage: 100Gi

@@ -1,0 +1,65 @@
+---
+# Turns the internal registry on and points it at the PVC.
+#
+# managementState IS THE SWITCH. Bare-metal installs ship `Removed`, which is why
+# this cluster has no registry at all rather than a broken one — the operator
+# reports Available=True with "The registry is removed", so nothing looks wrong.
+# Setting Managed is what creates the deployment.
+#
+# SERVER-SIDE APPLY IS TURNED OFF FOR THIS RESOURCE, and that is not a style
+# choice. cluster-image-registry-operator owns essentially the whole spec —
+# managementState, replicas, rolloutStrategy, storage and more — through Update
+# operations that wrote the install-time defaults. A server-side apply therefore
+# fails with:
+#
+#   conflicts with "cluster-image-registry-operator":
+#     .spec.managementState
+#     .spec.replicas
+#
+# ArgoCD's Force=true is NOT the server-side --force-conflicts flag, so it does
+# not resolve this; the fix is to fall back to client-side apply, which merges
+# only the declared fields. Same precedent as proxy/cluster in
+# manifests/config/cert-manager.
+#
+# The config layer sets ServerSideApply=true for every component, so this
+# resource opts out individually.
+#
+# Worth stating because it is easy to get wrong: `oc get -o json` HIDES
+# managedFields unless --show-managed-fields is passed. Checking ownership
+# without that flag returns an empty list and reads as "nothing owns this",
+# which is how this conflict was nearly shipped.
+#
+# replicas: 2 needs the ReadWriteMany PVC beside this file. With an RWO volume the
+# second replica would sit Pending forever, which is the usual way this is got
+# wrong.
+#
+# rolloutStrategy RollingUpdate is only safe BECAUSE the volume is RWX — both the
+# old and new pod mount it during a rollout. On RWO it must be Recreate.
+#
+# defaultRoute exposes the registry outside the cluster, which is required to
+# push an image built on a workstation — the VDDK image for MTV being the reason
+# this was enabled. The route lands on apps.hub.lab.bewley.net and is therefore
+# covered by the apps-wildcard-tls certificate from the homelab CA, so
+# `podman login` works without --tls-verify=false for anyone trusting that CA.
+apiVersion: imageregistry.operator.openshift.io/v1
+kind: Config
+metadata:
+  name: cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    # The registry Config is cluster-scoped and pre-existing; never let a prune
+    # of this component remove it.
+    argocd.argoproj.io/sync-options: ServerSideApply=false,Prune=false,Delete=false
+spec:
+  managementState: Managed
+  replicas: 2
+  rolloutStrategy: RollingUpdate
+  defaultRoute: true
+  storage:
+    # Unmanaged means the operator uses this PVC but does not own its lifecycle:
+    # it will not create, resize or DELETE the volume. Without it, setting
+    # managementState back to Removed can take the registry's storage with it.
+    # The PVC is declared beside this file instead, so git owns it.
+    managementState: Unmanaged
+    pvc:
+      claim: registry-storage-pvc
