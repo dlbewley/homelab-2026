@@ -6,3 +6,5 @@ resources:
   # Search database persistence. In an overlay rather than base because it must
   # name a StorageClass, and that is cluster-specific.
   - search.yaml
+  # ACM Credential for the lab vCenter. Topology in git, secrets from stores.
+  - credential-vsphere.yaml
