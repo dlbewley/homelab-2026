@@ -1,0 +1,34 @@
+---
+# Deploys MTV itself. Taken from the 2.12.5 CSV's own alm-examples rather than
+# transcribed from documentation:
+#   oc get packagemanifest mtv-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.annotations["alm-examples"]' \
+#     | jq '.[]|select(.kind=="ForkliftController")'
+#
+# THE feature_* VALUES ARE STRINGS, NOT BOOLEANS. That is how the shipped example
+# has them, and the CRD takes them as strings — unquoted true would be a
+# different type. Keep the quotes.
+#
+#   feature_ui_plugin         the MTV console plugin, which is how migrations are
+#                             actually driven day to day
+#   feature_validation        the opa-based pre-migration checks that flag VMs
+#                             needing attention before a plan runs
+#   feature_volume_populator  populator-based disk transfer rather than the older
+#                             CDI path
+#
+# SkipDryRunOnMissingResource because this CRD does not exist until the CSV
+# installs. The operator is a separate Application, so ordering between the two
+# layers is by retry rather than sync wave — the same arrangement as rhacm.
+apiVersion: forklift.konveyor.io/v1beta1
+kind: ForkliftController
+metadata:
+  name: forklift-controller
+  namespace: openshift-mtv
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  feature_ui_plugin: "true"
+  feature_validation: "true"
+  feature_volume_populator: "true"

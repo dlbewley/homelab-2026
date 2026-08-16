@@ -86,6 +86,11 @@ spec:
           - name: rhacm-observability
             namespace: open-cluster-management-observability
             path: manifests/config/rhacm-observability/overlays/hub
+          # ForkliftController. Its CRD arrives with the MTV CSV, so this
+          # Application retries until the operator lands.
+          - name: mtv
+            namespace: openshift-mtv
+            path: manifests/config/mtv/base
           # Adds Keycloak as an identity provider. Depends on the realm
           # (hub-cfg-keycloak) and on the trust-manager Bundle in
           # hub-cfg-cert-manager putting homelab-ca into openshift-config.

@@ -1,0 +1,17 @@
+---
+# Namespace name comes from the operator's own suggestion, not invented:
+#   oc get packagemanifest mtv-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.annotations["operatorframework.io/suggested-namespace"]'
+#   -> openshift-mtv
+#
+# No operator/operand split: the operator installs OwnNamespace, and
+# ForkliftController lives here too.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-mtv
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
