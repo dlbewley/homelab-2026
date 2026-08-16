@@ -5,3 +5,5 @@ kind: Kustomization
 # see homelab-2026-4pq.30.
 resources:
   - forkliftcontroller.yaml
+  # Lets migration pods in target namespaces pull the VDDK image from here.
+  - rolebinding-image-pullers.yaml

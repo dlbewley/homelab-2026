@@ -94,6 +94,38 @@ as [rhacm](../rhacm). That is why the CR carries
 oc get forkliftcontroller -n openshift-mtv
 ```
 
+## Migrations run outside this namespace
+
+A migration does not run in `openshift-mtv` — it runs in the **target** namespace
+where the VMs are landing, which for real work is a customer or tenant namespace.
+Those pods still pull images out of `openshift-mtv`, most importantly the VDDK
+image.
+
+`allow-image-pullers` is what permits that. Without it, migrations fail on image
+pull rather than on anything naming permissions, so it reads as a registry or
+networking fault.
+
+The namespace already ships a `system:image-pullers` binding, but its only
+subject is `system:serviceaccounts:openshift-mtv` — service accounts *inside*
+this namespace. Pods in a target namespace are not in that group, so the two
+bindings are additive rather than redundant.
+
+What it grants is narrower than the name suggests:
+
+```
+system:image-puller  ->  get on imagestreams/layers
+```
+
+Read-only, and only for imagestreams in this namespace. No push, no delete, no
+other resource.
+
+> The subject is `system:authenticated` — every authenticated user and service
+> account on the cluster. That breadth is deliberate: the alternative is naming
+> each target namespace's service accounts and editing this binding per
+> migration. Note the VDDK image is built from VMware's licensed distribution, so
+> this makes it pullable in-cluster by anyone already authenticated here. It
+> changes nothing about external exposure.
+
 ## The vSphere source provider
 
 `overlays/hub` adds the lab vCenter as a migration source: a `Provider` plus the

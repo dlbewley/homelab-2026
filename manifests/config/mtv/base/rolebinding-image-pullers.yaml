@@ -1,0 +1,45 @@
+---
+# Lets migration pods in ANY namespace pull images out of openshift-mtv.
+#
+# WHY THIS IS NEEDED. A migration does not run in openshift-mtv — it runs in the
+# target namespace where the VMs are landing, which for real work is a customer
+# or tenant namespace. Those pods still have to pull from openshift-mtv, most
+# importantly the VDDK image. Without this they fail on image pull rather than on
+# anything that names permissions, which makes it look like a registry or
+# networking fault.
+#
+# THE DEFAULT BINDING IS NOT ENOUGH. openshift-mtv already ships
+# `system:image-pullers`, but its only subject is the group
+# `system:serviceaccounts:openshift-mtv` — service accounts inside this namespace.
+# Pods in a target namespace are not in that group. This binding is additive and
+# does not replace it.
+#
+# WHAT IT ACTUALLY GRANTS, which is narrower than the name suggests:
+#   system:image-puller -> get on imagestreams/layers
+# Read-only, and only the layers of imagestreams in THIS namespace. It confers no
+# ability to push, delete, or read any other resource.
+#
+# THE SCOPE IS DELIBERATE AND WORTH STATING. `system:authenticated` is every
+# authenticated user and service account on the cluster, so any of them can pull
+# images from openshift-mtv. That is the point — the alternative is naming every
+# target namespace's service accounts and updating this binding for each new
+# migration. Note that the VDDK image is built from VMware's licensed
+# distribution; this makes it pullable in-cluster by anyone already authenticated
+# here, and changes nothing about external exposure.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: allow-image-pullers
+  namespace: openshift-mtv
+  annotations:
+    openshift.io/description: >-
+      Allows all pods in all namespaces to pull images from this namespace.
+    argocd.argoproj.io/sync-wave: "5"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:image-puller
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:authenticated
