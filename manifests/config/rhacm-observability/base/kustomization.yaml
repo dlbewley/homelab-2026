@@ -6,3 +6,5 @@ resources:
   - namespace.yaml
   - rbac.yaml
   - secretstore.yaml
+  # Silences FailedToRetrieveImagePullSecret on all 39 pods here.
+  - pull-secret.yaml

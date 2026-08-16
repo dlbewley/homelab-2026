@@ -3,3 +3,5 @@ kind: Kustomization
 
 resources:
   - externalsecretsconfig.yaml
+  # Cluster-agnostic: every cluster has openshift-config/pull-secret.
+  - clustersecretstore-pullsecret.yaml

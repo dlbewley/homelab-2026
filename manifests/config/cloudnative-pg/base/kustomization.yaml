@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Config-only component: the operator install lives in manifests/olm/cloudnative-pg.
+# Cluster-agnostic — the Postgres Cluster itself belongs to the keycloak
+# component, since that is what owns the database.
+resources:
+  - pull-secret.yaml
