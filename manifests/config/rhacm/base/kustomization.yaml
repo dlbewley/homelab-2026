@@ -5,3 +5,5 @@ kind: Kustomization
 # (homelab-2026-4pq.25) and observability (homelab-2026-4pq.24) will need one.
 resources:
   - multiclusterhub.yaml
+  # Builds multiclusterhub-operator-pull-secret from openshift-config/pull-secret.
+  - pull-secret.yaml
