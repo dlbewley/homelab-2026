@@ -32,3 +32,26 @@ spec:
   feature_ui_plugin: "true"
   feature_validation: "true"
   feature_volume_populator: "true"
+  # The VDDK image migrations use to talk to vSphere. VMware ships VDDK under a
+  # licence that forbids redistribution, so the tarball is uploaded to MTV
+  # through the console and built into an image inside the cluster. NOTHING
+  # LICENSED IS IN THIS REPO — this is a pointer, and the internal service DNS
+  # makes it unreachable from outside the cluster anyway.
+  #
+  # THE TAG IS STABLE, NOT GENERATED. MTV's BuildConfig hard-codes
+  # `output.to: ImageStreamTag/vddk:latest`, so every rebuild overwrites the same
+  # tag and this reference never needs editing. That is why `latest` is used here
+  # rather than a digest, despite this repo pinning digests elsewhere: the
+  # objection to a floating tag is that someone else can move it under you, and
+  # nobody outside this cluster can move this one.
+  #
+  # DO NOT ADD THE BUILDCONFIG TO THIS REPO. It carries an ownerReference to this
+  # very ForkliftController, so MTV creates and reconciles it — ArgoCD would be
+  # fighting the operator, and deleting it simply gets it recreated. The build is
+  # driven from the console because that is where the licensed tarball is
+  # uploaded; only the resulting reference belongs in git.
+  #
+  # Migration pods run in the TARGET namespace, not here, and pull this image
+  # across namespaces — which works because of allow-image-pullers in
+  # rolebinding-image-pullers.yaml.
+  vddk_image: image-registry.openshift-image-registry.svc:5000/openshift-mtv/vddk:latest
