@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Cluster-agnostic: nothing here names a StorageClass, network or hostname.
+# The vSphere source Provider is cluster-specific and lands in overlays/hub —
+# see homelab-2026-4pq.30.
+resources:
+  - forkliftcontroller.yaml

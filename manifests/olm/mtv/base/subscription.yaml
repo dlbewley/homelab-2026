@@ -1,0 +1,22 @@
+---
+# Channel verified against the live hub cluster on 2026-08-16:
+#   oc get packagemanifest mtv-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> release-v2.12  (mtv-operator.v2.12.5; the other channel is release-v2.11)
+#
+# The channel is version-pinned, so this does not float across MTV releases.
+# Bumping it is a deliberate, reviewable change. Re-check with
+# scripts/verify-channels.sh after a cluster upgrade.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: mtv-operator
+  namespace: openshift-mtv
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: mtv-operator
+  channel: release-v2.12
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

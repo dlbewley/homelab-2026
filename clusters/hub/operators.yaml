@@ -70,6 +70,10 @@ spec:
           - name: rhacm
             namespace: open-cluster-management
             path: manifests/olm/rhacm/base
+          # OwnNamespace ONLY, same as rhacm.
+          - name: mtv
+            namespace: openshift-mtv
+            path: manifests/olm/mtv/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'

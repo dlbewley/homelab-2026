@@ -1,0 +1,21 @@
+---
+# targetNamespaces is REQUIRED. This operator supports OwnNamespace ONLY —
+# not SingleNamespace, not AllNamespaces:
+#   oc get packagemanifest mtv-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> OwnNamespace
+#
+# An empty `spec: {}` would request AllNamespaces and fail resolution with a
+# message naming the mode but not the fix — the way metallb and rhacm did.
+# scripts/verify-channels.sh checks this shape against the pinned channel.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: mtv-operatorgroup
+  namespace: openshift-mtv
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  targetNamespaces:
+    - openshift-mtv
