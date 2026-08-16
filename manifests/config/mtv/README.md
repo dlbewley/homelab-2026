@@ -94,6 +94,53 @@ as [rhacm](../rhacm). That is why the CR carries
 oc get forkliftcontroller -n openshift-mtv
 ```
 
+## The VDDK image
+
+Migrations need VMware's VDDK to read vSphere disks. VMware ships it under a
+licence that forbids redistribution, so the tarball is uploaded to MTV through
+the console and built into an image inside the cluster.
+
+**Nothing licensed is in this repo.** `spec.vddk_image` on `ForkliftController`
+is a pointer, and the internal service DNS makes it unreachable from outside the
+cluster anyway.
+
+### The tag is stable, so `latest` is correct here
+
+MTV's BuildConfig hard-codes `output.to: ImageStreamTag/vddk:latest`, so every
+rebuild overwrites the same tag and the reference never needs editing.
+
+That is a deliberate exception to this repo pinning digests elsewhere. The
+objection to a floating tag — as raised against `ose-cli:latest` and the
+`bewley-catalog` CatalogSource — is that a **third party** can move it under you.
+Nobody outside this cluster can move this one, and a rebuild is a deliberate act.
+
+### Do not add the BuildConfig to this repo
+
+It carries an ownerReference to the `ForkliftController` itself:
+
+```
+ownerReferences: ForkliftController/forklift-controller
+```
+
+MTV creates and reconciles it, so ArgoCD would be fighting the operator, and
+deleting it simply gets it recreated. The build is driven from the console
+because that is where the licensed tarball is uploaded; only the resulting
+reference belongs in git.
+
+### Rebuilding
+
+Upload a new tarball in the console and build again. The tag does not change, so
+nothing here needs updating — but the image is pulled at migration time, so a
+running migration is not affected mid-flight.
+
+```bash
+oc get is vddk -n openshift-mtv
+```
+
+```bash
+oc get build -n openshift-mtv
+```
+
 ## Migrations run outside this namespace
 
 A migration does not run in `openshift-mtv` — it runs in the **target** namespace
