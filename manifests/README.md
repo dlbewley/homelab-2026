@@ -102,6 +102,7 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | node-labels | — | ✅ | Config-only, and `overlays/hub` only — mapping labels onto named machines cannot be cluster-agnostic. Manages pre-existing Nodes, so every one carries `Prune=false,Delete=false` |
 | nmstate | ✅ | ✅ | `br-vmdata` OVS bridge on `ens224`, with an OVN localnet mapping for `physnet-vmdata` |
 | metallb | ✅ | ✅ | Address pool written but commented out — IP range unverified |
+| image-registry | — | ✅ | Config-only. Enables the internal registry, which bare-metal installs leave `Removed`, on a **ReadWriteMany** CephFS PVC so it can run 2 replicas. Client-side apply — the registry operator owns the whole spec — see [its README](config/image-registry/README.md) |
 | local-storage | ✅ | ✅ | Bounded to the 1TiB `sdb` on each store node |
 | odf | ✅ | ✅ | 3 × 1TiB OSDs, `flexibleScaling`; sets the cluster and virt default StorageClasses — see [its README](config/odf/README.md) |
 | virtualization | ✅ | ✅ | Workloads pinned to `node-role.kubernetes.io/virtualization` |

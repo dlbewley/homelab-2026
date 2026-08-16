@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Nothing cluster-agnostic yet: the PVC names a StorageClass and the registry
+# config names a size, so both live in overlays/<cluster>. The directory exists
+# so the component follows the repo's base/overlay shape and has somewhere to
+# put shared pieces later.
+resources: []
