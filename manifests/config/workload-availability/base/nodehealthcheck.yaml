@@ -1,0 +1,57 @@
+---
+# Watches the virtualization nodes and remediates one that stops being Ready.
+#
+# WATCHES ONLY THE VM HOSTS. The selector is the virtualization role, so the four
+# cnv nodes are covered and the store nodes deliberately are not — remediating a
+# store node reboots an ODF OSD host, which is a far larger event than rebooting
+# a VM host. Selecting by role label rather than hostname is what keeps this file
+# cluster-agnostic and therefore in base/.
+#
+# THE SHIPPED SAMPLE POINTS AT THE WRONG NAMESPACE. NodeHealthCheck's own
+# alm-examples references `namespace: openshift-operators` for the remediation
+# template. SNR creates its default templates in ITS namespace, which here is
+# openshift-workload-availability. Copying the sample verbatim yields a
+# NodeHealthCheck referencing a template that does not exist — and the failure
+# mode is silence: the CR is accepted and simply never remediates.
+#
+# VERIFY THE TEMPLATE NAME AFTER SNR INSTALLS, do not trust this one blindly. SNR
+# creates its defaults itself:
+#   oc get selfnoderemediationtemplate -n openshift-workload-availability
+#
+# minHealthy 51% against four virtualization nodes means at least three must be
+# healthy before any remediation proceeds — one node at a time, and nothing
+# happens if two fail together. That is the safety valve: a network partition
+# that makes several nodes look unhealthy must NOT trigger mass reboots.
+#
+# 300s before acting is deliberate. A node briefly NotReady during a kubelet
+# restart or a network blip must not be rebooted; only a sustained failure should
+# be.
+#
+# SkipDryRunOnMissingResource because the NodeHealthCheck CRD arrives with the NHC
+# CSV, and the SelfNodeRemediationTemplate it references arrives with SNR's. The
+# operators are a separate Application, so ordering is by retry, not sync wave.
+apiVersion: remediation.medik8s.io/v1alpha1
+kind: NodeHealthCheck
+metadata:
+  name: virtualization-nodes
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/virtualization
+        operator: Exists
+  minHealthy: "51%"
+  unhealthyConditions:
+    - type: Ready
+      status: "False"
+      duration: 300s
+    - type: Ready
+      status: Unknown
+      duration: 300s
+  remediationTemplate:
+    apiVersion: self-node-remediation.medik8s.io/v1alpha1
+    kind: SelfNodeRemediationTemplate
+    name: self-node-remediation-automatic-strategy-template
+    namespace: openshift-workload-availability

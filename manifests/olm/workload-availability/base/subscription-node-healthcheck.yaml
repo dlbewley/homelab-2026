@@ -1,0 +1,22 @@
+---
+# Detects unhealthy nodes. On its own it does NOTHING — a NodeHealthCheck needs a
+# remediationTemplate pointing at a provider, which is why self-node-remediation
+# is subscribed alongside it.
+#
+# Channel verified against the live catalog on 2026-08-17:
+#   oc get packagemanifest node-healthcheck-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> stable  (node-healthcheck-operator.v0.12.1; stable is the only channel)
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: node-healthcheck-operator
+  namespace: openshift-workload-availability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: node-healthcheck-operator
+  channel: stable
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

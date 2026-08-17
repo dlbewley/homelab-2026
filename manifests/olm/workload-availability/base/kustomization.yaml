@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# TWO operators, ONE OperatorGroup — see operatorgroup.yaml for why they cannot
+# be separate components.
+resources:
+  - namespace.yaml
+  - operatorgroup.yaml
+  - subscription-node-healthcheck.yaml
+  - subscription-self-node-remediation.yaml

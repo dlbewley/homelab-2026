@@ -41,7 +41,7 @@ while IFS= read -r sub; do
     status="DRIFT"; drift=1
   fi
   printf '%-22s %-18s %-18s %s\n' "$component" "$want" "$got" "$status"
-done < <(find "$olm_dir" -name subscription.yaml | sort)
+done < <(find "$olm_dir" -name 'subscription*.yaml' | sort)
 
 printf '\n%-22s %-18s %s\n' COMPONENT OPERATORGROUP STATUS
 
@@ -52,7 +52,14 @@ printf '\n%-22s %-18s %s\n' COMPONENT OPERATORGROUP STATUS
 #   OwnNamespace InstallModeType not supported, cannot configure to watch own namespace
 while IFS= read -r og; do
   component=$(basename "$(dirname "$(dirname "$og")")")
-  sub="$(dirname "$og")/subscription.yaml"
+
+  # A namespace may hold exactly ONE OperatorGroup but any number of
+  # Subscriptions - workload-availability shares one between
+  # node-healthcheck-operator and self-node-remediation. Every package in the
+  # directory must support the mode the single OperatorGroup requests, so check
+  # them all rather than assuming a lone subscription.yaml. Assuming that file
+  # existed made this script fail outright on the first component with two.
+  while IFS= read -r sub; do
   pkg=$(awk '/^  name:/ {print $2; exit}' "$sub")
   chan=$(awk '/^  channel:/ {print $2; exit}' "$sub")
 
@@ -92,6 +99,7 @@ while IFS= read -r og; do
     status="UNSUPPORTED — needs $wants, operator allows: $supported"; drift=1
   fi
   printf '%-22s %-18s %s\n' "$component" "$shape" "$status"
+  done < <(find "$(dirname "$og")" -name 'subscription*.yaml' | sort)
 done < <(find "$olm_dir" -name operatorgroup.yaml | sort)
 
 echo

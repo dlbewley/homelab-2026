@@ -96,6 +96,12 @@ spec:
           - name: mtv
             namespace: openshift-mtv
             path: manifests/config/mtv/overlays/hub
+          # NodeHealthCheck watching the virtualization nodes. Its CRD and
+          # the SelfNodeRemediationTemplate it references both arrive with the
+          # operators, so this converges by retry.
+          - name: workload-availability
+            namespace: openshift-workload-availability
+            path: manifests/config/workload-availability/base
           # Adds Keycloak as an identity provider. Depends on the realm
           # (hub-cfg-keycloak) and on the trust-manager Bundle in
           # hub-cfg-cert-manager putting homelab-ca into openshift-config.

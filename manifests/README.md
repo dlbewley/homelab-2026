@@ -35,6 +35,7 @@ straight:
 | Component | Shape | Why |
 |---|---|---|
 | `metallb`, `external-secrets` | `spec: {}` | AllNamespaces is the **only** mode the operator supports |
+| `workload-availability` | `spec: {}` | AllNamespaces is the **only** mode either operator supports |
 | `cloudnative-pg` | `spec: {}` | **chosen** — must manage the Postgres `Cluster` in the `keycloak` namespace |
 | `ovn-recon` | `spec: {}` | **chosen** — the collector probes `openshift-ovn-kubernetes` and `openshift-frr-k8s` |
 | everything else | `targetNamespaces` | own namespace is sufficient |
@@ -113,6 +114,7 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | oauth | — | ✅ | Keycloak (`claim`) and GitHub (`add`, org `dwnwrd`) identity providers; group membership stays static in `bootstrap/rbac.yaml` — see [its README](config/oauth/README.md) |
 | bewley-catalog | ✅ | — | `CatalogSource` for self-published operators. Not an operator install — no namespace, OperatorGroup or Subscription |
 | ovn-recon | ✅ | ✅ | OVN topology Console plugin, from `bewley-catalog`. Collector disabled in base, enabled on hub — see [its README](config/ovn-recon/README.md) |
+| workload-availability | ✅ | ✅ | Node Health Check + Self Node Remediation, toward VM high availability. **Two operators sharing one OperatorGroup** — a namespace may only have one — see [its README](config/workload-availability/README.md) |
 | rhacm | ✅ | ✅ | Operator + `MultiClusterHub`, plus 10Gi persistent storage for the Search database. **OwnNamespace-only**. Credentials are a separate issue — see [its README](config/rhacm/README.md) |
 | rhacm-observability | — | ✅ | Config-only. `MultiClusterObservability` on a Thanos bucket provisioned by an ObjectBucketClaim on ODF's RGW; `thanos.yaml` composed by an ExternalSecret rather than the catalog's setup Job. Every storage size set explicitly — the CRD defaults total 212Gi — see [its README](config/rhacm-observability/README.md) |
 | mtv | ✅ | ✅ | Migration Toolkit for Virtualization + `ForkliftController`, plus the lab vCenter as a source `Provider`. **OwnNamespace-only**, like rhacm. Credentials come from the same 1Password item as the ACM credential, under different key names — see [its README](config/mtv/README.md) |

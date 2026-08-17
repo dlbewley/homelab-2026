@@ -74,6 +74,12 @@ spec:
           - name: mtv
             namespace: openshift-mtv
             path: manifests/olm/mtv/base
+          # TWO operators (node-healthcheck + self-node-remediation) sharing
+          # ONE OperatorGroup, because a namespace may only have one. Both are
+          # AllNamespaces, so it uses `spec: {}`.
+          - name: workload-availability
+            namespace: openshift-workload-availability
+            path: manifests/olm/workload-availability/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'
