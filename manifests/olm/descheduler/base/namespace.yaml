@@ -1,0 +1,14 @@
+---
+# Namespace name comes from the operator's own suggestion, not invented:
+#   oc get packagemanifest cluster-kube-descheduler-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.annotations["operatorframework.io/suggested-namespace"]'
+#   -> openshift-kube-descheduler-operator
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-kube-descheduler-operator
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

@@ -1,0 +1,23 @@
+---
+# targetNamespaces is REQUIRED. This operator supports OwnNamespace and
+# SingleNamespace only — NOT AllNamespaces:
+#   oc get packagemanifest cluster-kube-descheduler-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> OwnNamespace, SingleNamespace
+#
+# So this takes the same shape as rhacm and mtv, and the OPPOSITE of
+# workload-availability and cluster-observability, which are AllNamespaces and
+# use `spec: {}`. An empty spec here would request AllNamespaces and fail
+# resolution with a message naming the mode but not the fix — the way metallb
+# did. scripts/verify-channels.sh checks this against the pinned channel.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: descheduler-operatorgroup
+  namespace: openshift-kube-descheduler-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  targetNamespaces:
+    - openshift-kube-descheduler-operator

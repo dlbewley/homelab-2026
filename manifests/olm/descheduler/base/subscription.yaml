@@ -1,0 +1,28 @@
+---
+# Rebalances workloads that are already running. Nothing in Kubernetes moves a
+# scheduled pod, so nodes drift out of balance after every maintenance window and
+# stay that way — measured on this cluster, 3 running VMs sat on 2 of the 4
+# virtualization nodes with the other 2 idle.
+#
+# Channel verified against the live catalog on 2026-08-17:
+#   oc get packagemanifest cluster-kube-descheduler-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> stable  (clusterkubedescheduleroperator.v5.4.2; stable is the only channel)
+#
+# THE OPERATOR ALONE CHANGES NOTHING. It does not act until a KubeDescheduler CR
+# exists, so installing it is safe on its own — which is why this lands before
+# the CR rather than with it. The CR carries the eviction policy and is the part
+# that needs care.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cluster-kube-descheduler-operator
+  namespace: openshift-kube-descheduler-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: cluster-kube-descheduler-operator
+  channel: stable
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
