@@ -102,6 +102,11 @@ spec:
           - name: workload-availability
             namespace: openshift-workload-availability
             path: manifests/config/workload-availability/base
+          # Dashboards UIPlugin. Cluster-scoped, and its CRD arrives with the
+          # operator's CSV, so this converges by retry.
+          - name: cluster-observability
+            namespace: openshift-cluster-observability-operator
+            path: manifests/config/cluster-observability/base
           # Adds Keycloak as an identity provider. Depends on the realm
           # (hub-cfg-keycloak) and on the trust-manager Bundle in
           # hub-cfg-cert-manager putting homelab-ca into openshift-config.
