@@ -85,6 +85,11 @@ spec:
           - name: cluster-observability
             namespace: openshift-cluster-observability-operator
             path: manifests/olm/cluster-observability/base
+          # OwnNamespace/SingleNamespace only, so targetNamespaces — the same
+          # shape as rhacm and mtv, not the `spec: {}` used above.
+          - name: descheduler
+            namespace: openshift-kube-descheduler-operator
+            path: manifests/olm/descheduler/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'
