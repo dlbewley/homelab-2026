@@ -1,0 +1,15 @@
+---
+# Namespace name comes from the operators' own suggestion, not invented. BOTH
+# operators suggest the same one:
+#   oc get packagemanifest node-healthcheck-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.annotations["operatorframework.io/suggested-namespace"]'
+#   -> openshift-workload-availability   (self-node-remediation says the same)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-workload-availability
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

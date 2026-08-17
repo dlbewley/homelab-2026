@@ -1,0 +1,28 @@
+---
+# ONE OperatorGroup FOR TWO OPERATORS, and that is why this component is shaped
+# differently from every other olm/ component here.
+#
+# A namespace may contain exactly ONE OperatorGroup. A second makes OLM refuse to
+# resolve anything in that namespace at all. Node Health Check and Self Node
+# Remediation share openshift-workload-availability, so they must share this
+# OperatorGroup — which means they must live in one component rather than the
+# usual one-operator-per-component. The deviation is forced by OLM, not chosen.
+#
+# `spec: {}` requests AllNamespaces, which is the only mode either operator
+# supports:
+#   oc get packagemanifest node-healthcheck-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> AllNamespaces
+#
+# That is the opposite of rhacm and mtv, which are OwnNamespace-only and must set
+# targetNamespaces. scripts/verify-channels.sh checks this shape against the
+# catalog for every component.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: workload-availability-operatorgroup
+  namespace: openshift-workload-availability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec: {}

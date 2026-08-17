@@ -1,0 +1,28 @@
+---
+# The remediation provider Node Health Check delegates to. An unhealthy node
+# reboots ITSELF, and NHC waits a calculated period before treating it as gone.
+#
+# Channel verified against the live catalog on 2026-08-17:
+#   oc get packagemanifest self-node-remediation -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> stable  (self-node-remediation.v0.13.1; stable is the only channel)
+#
+# NO HARDWARE WATCHDOG ON THESE NODES — checked cnv-1 on 2026-08-17, /dev/watchdog
+# does not exist. SNR uses a watchdog when present and falls back to a software
+# reboot otherwise, which is a weaker guarantee that a sick node has actually
+# stopped writing. That matters here because VMs restart on shared ODF storage.
+# Fence Agents Remediation against vCenter would be true out-of-band fencing;
+# see the beads issue for why SNR was chosen first.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: self-node-remediation
+  namespace: openshift-workload-availability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: self-node-remediation
+  channel: stable
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
