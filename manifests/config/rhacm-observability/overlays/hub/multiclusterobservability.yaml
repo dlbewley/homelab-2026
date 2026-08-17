@@ -36,12 +36,53 @@ metadata:
     argocd.argoproj.io/sync-wave: "10"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  # Sizes the read and write paths. NOTE: this does NOT cut replica counts -
-  # that is spec.advanced.<component>.replicas, which is left unset here. With
-  # advanced unset the operator runs 6 receive, 3 store, 3 rule and 3
-  # alertmanager replicas, and because the sizes below are per-replica the real
-  # total is 206Gi rather than the ~82Gi the per-disk numbers suggest. See
-  # homelab-2026-4pq.26 and the component README.
+  # TECH PREVIEW. These fields drive the multicluster-observability-addon, which
+  # is how ACM delivers fleet-wide Perses dashboards. Treat the shape as unstable
+  # across ACM releases — this repo pins the ACM channel precisely so an upgrade
+  # that changes them is a deliberate, reviewable step.
+  #
+  # DECLARED HERE BECAUSE THEY WERE ALREADY LIVE AND UNTRACKED. Enabled by hand on
+  # 2026-08-17 (spec.capabilities was owned by `kubectl-edit`), while git declared
+  # no capabilities at all. Since the CR is applied with server-side apply and
+  # ArgoCD owns only the fields git names, none of this was being reconciled: it
+  # would have survived indefinitely and then vanished on a rebuild.
+  #
+  # Declaring identical values is safe even though another manager owns the field.
+  # Server-side apply makes a second manager a CO-OWNER when the value matches,
+  # and only conflicts when it differs — verified with a dry-run as
+  # argocd-controller before committing. That is the opposite of the image
+  # registry Config, where values differed and ServerSideApply had to be disabled.
+  #
+  # metrics.ui DEPENDS ON THE CLUSTER OBSERVABILITY OPERATOR, which is installed
+  # by the separate cluster-observability component. The CRD says so directly —
+  # "enable UI through COO on the hub" — and the addon's own config confirms the
+  # wiring: platformMetricsUI=uiplugins.v1alpha1.observability.openshift.io, the
+  # COO API. Two Applications, so ordering is by retry. The failure mode is quiet:
+  # with COO absent the capability stays true and nothing renders.
+  # WHAT IS DELIBERATELY NOT DECLARED: spec.capabilities.platform.analytics.
+  # Both right-sizing recommendation fields are true on this cluster, but field
+  # ownership shows they were written by mco-operator at 2026-08-13T23:14:02Z —
+  # MCO install time, three days before the metrics fields were set by hand. They
+  # are OPERATOR DEFAULTS, not anyone's decision, so restating them here would pin
+  # a value the operator chose and silently override a future ACM release that
+  # changed it. clusters/hub/config.yaml makes the same argument about CRD
+  # defaults generally.
+  #
+  # Note the addon reports platformNamespaceRightSizing=disabled and
+  # platformVirtualizationRightSizing=disabled in
+  # addondeploymentconfig/multicluster-observability-addon despite those fields
+  # being true, and the grafana-dashboard-acm-right-sizing-* ConfigMaps predate
+  # them by three days — so the fields being true is not evidence the feature is
+  # active. See homelab-2026-4pq.36.
+  capabilities:
+    platform:
+      metrics:
+        # Collect and forward metrics from fleet managed clusters.
+        default:
+          enabled: true
+        # Fleet-wide Perses dashboards, served through COO.
+        ui:
+          enabled: true
   instanceSize: minimal
   observabilityAddonSpec:
     enableMetrics: true
