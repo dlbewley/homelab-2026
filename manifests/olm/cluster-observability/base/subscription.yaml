@@ -1,0 +1,33 @@
+---
+# Cluster Observability Operator. Upstream is
+# https://github.com/rhobs/observability-operator — worth knowing, because its
+# CRDs live under monitoring.rhobs and observability.openshift.io rather than the
+# monitoring.coreos.com group the built-in stack uses.
+#
+# Channel verified against the live catalog on 2026-08-17:
+#   oc get packagemanifest cluster-observability-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> stable  (cluster-observability-operator.v1.5.1; `fast` also exists)
+#
+# Pinned to stable rather than left to float. `fast` is a real alternative and
+# choosing it should be a reviewable change, not a default.
+#
+# IT DOES NOT COLLIDE WITH CLUSTER MONITORING, despite its CSV declaring
+# ownership of ServiceMonitor, PodMonitor, Prometheus, Alertmanager and friends.
+# Checked on the cluster: those CRDs are labelled
+# managed-by=cluster-version-operator, part-of=openshift-monitoring, while this
+# operator's own CRDs (UIPlugin, MonitoringStack) carry olm.managed=true under
+# different API groups. The two coexist.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cluster-observability-operator
+  namespace: openshift-cluster-observability-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: cluster-observability-operator
+  channel: stable
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

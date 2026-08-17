@@ -1,0 +1,25 @@
+---
+# `spec: {}` requests AllNamespaces, the only mode this operator supports:
+#   oc get packagemanifest cluster-observability-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> AllNamespaces
+#
+# NAMED DELIBERATELY, because the console does not. Installing this operator
+# through the web console creates an OperatorGroup with `generateName`, producing
+# something like openshift-cluster-observability-operator-skb2n — a random suffix
+# that cannot be reproduced in git.
+#
+# That matters for anyone adopting a hand-installed instance rather than starting
+# clean: a namespace may hold exactly ONE OperatorGroup, and a second makes OLM
+# refuse to resolve anything in that namespace at all. So adopting means deleting
+# the console's OperatorGroup and letting this one replace it, not adding this
+# one alongside it.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cluster-observability-operatorgroup
+  namespace: openshift-cluster-observability-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec: {}

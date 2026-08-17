@@ -80,6 +80,11 @@ spec:
           - name: workload-availability
             namespace: openshift-workload-availability
             path: manifests/olm/workload-availability/base
+          # AllNamespaces, so `spec: {}`. Named OperatorGroup deliberately —
+          # the console generates one with a random suffix.
+          - name: cluster-observability
+            namespace: openshift-cluster-observability-operator
+            path: manifests/olm/cluster-observability/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'

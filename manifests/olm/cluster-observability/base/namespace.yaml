@@ -1,0 +1,18 @@
+---
+# Namespace name comes from the operator's own suggestion, not invented:
+#   oc get packagemanifest cluster-observability-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.annotations["operatorframework.io/suggested-namespace"]'
+#   -> openshift-cluster-observability-operator
+#
+# The pod-security audit/warn labels the console also sets are deliberately NOT
+# declared here: the podSecurityLabelSync controller manages them, and pinning
+# them in git would fight it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-cluster-observability-operator
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

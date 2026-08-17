@@ -1,0 +1,34 @@
+---
+# Adds the Dashboards console plugin, which surfaces Perses-based dashboards in
+# the OpenShift console.
+#
+# THE NAME IS NOT A CHOICE. The API server rejects anything else:
+#   The UIPlugin "test-arbitrary-name" is invalid: <nil>: Invalid value:
+#   UIPlugin name must be 'dashboards' if type is Dashboards
+# Verified with a server-side dry-run on 2026-08-17. Each UIPlugin type has its
+# own required name, so renaming this to match a local convention will fail.
+#
+# UIPlugin is CLUSTER-SCOPED, so no namespace is set. The Application's
+# destination namespace is irrelevant to where this lands.
+#
+# NO CONFIG BLOCK FOR THIS TYPE. spec carries optional sub-objects for
+# distributedTracing, logging, monitoring and troubleshootingPanel — none apply
+# to Dashboards, which takes `type` alone. `type` is the only required field on
+# the CRD.
+#
+# SkipDryRunOnMissingResource because the UIPlugin CRD arrives with the operator's
+# CSV. The operator is a separate Application, so ordering between the two layers
+# is by retry rather than sync wave — the same arrangement as rhacm and mtv.
+#
+# Enabling this adds a plugin to console.operator.openshift.io/cluster, joining
+# the nine already there. The console redeploys when the list changes, so expect
+# a brief console reload rather than an outage.
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  name: dashboards
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  type: Dashboards
