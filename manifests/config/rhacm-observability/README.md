@@ -83,6 +83,71 @@ suggest. Tracked in `homelab-2026-4pq.26`.
 > default ACM observability install. Check the tracker before changing this: if it
 > is fixed upstream, the fix is an operator upgrade rather than a manifest change.
 
+## Perses dashboards, via `capabilities` (Tech Preview)
+
+```yaml
+spec:
+  capabilities:
+    platform:
+      metrics:
+        default: {enabled: true}   # collect and forward from managed clusters
+        ui:      {enabled: true}   # fleet-wide Perses dashboards, through COO
+```
+
+These drive the `multicluster-observability-addon`, which is how ACM delivers
+fleet-wide Perses dashboards. **Treat the shape as unstable** across ACM releases
+— the ACM channel is pinned precisely so an upgrade that changes them is a
+deliberate step.
+
+### It depends on the Cluster Observability Operator
+
+`metrics.ui` needs COO on the hub, installed by the separate
+[cluster-observability](../cluster-observability) component. The CRD says so
+directly, and the addon's own config confirms the wiring:
+
+```
+platformMetricsUI=uiplugins.v1alpha1.observability.openshift.io
+```
+
+That is COO's API. Two Applications, so ordering is by retry — and the failure
+mode is quiet: with COO absent the capability stays `true` and nothing renders.
+
+> This is a **different mechanism** from the `UIPlugin` in
+> [cluster-observability](../cluster-observability). That plugin serves the
+> console's own dashboards; these capabilities drive the ACM addon's fleet-wide
+> Perses instance. Both need COO, and they are not alternatives.
+
+### Declaring a value another manager already set is safe
+
+`spec.capabilities` was set by hand before it was committed, so `kubectl-edit`
+owned it. Declaring the **same** value does not conflict — server-side apply
+makes a second manager a *co-owner* when values match, and only conflicts when
+they differ. Verified with a dry-run as `argocd-controller` before committing.
+
+That is the opposite of the [image registry](../image-registry) Config, where the
+values genuinely differed and `ServerSideApply` had to be disabled.
+
+### What is deliberately not declared
+
+`spec.capabilities.platform.analytics` — both right-sizing recommendation fields
+are `true` on this cluster, but they belong to `mco-operator`:
+
+| field | manager | when |
+|---|---|---|
+| `analytics.*RightSizingRecommendation` | `mco-operator` | 2026-08-13T23:14:02Z (install) |
+| `metrics.default`, `metrics.ui` | `kubectl-edit` | 2026-08-17T17:58:35Z |
+
+They are **operator defaults**, not a decision anyone made. Restating them would
+pin a value the operator chose and silently override a future ACM release that
+changed it — the same argument `clusters/hub/config.yaml` makes about CRD
+defaults generally.
+
+Their being `true` is also not evidence the feature is active: the addon reports
+`platformNamespaceRightSizing=disabled` and
+`platformVirtualizationRightSizing=disabled`, and the
+`grafana-dashboard-acm-right-sizing-*` ConfigMaps predate the fields by three
+days. Tracked in `homelab-2026-4pq.36`.
+
 ## The setup Job is deliberately not adopted
 
 The [redhat-cop catalog](https://github.com/redhat-cop/gitops-catalog/tree/main/advanced-cluster-management)
