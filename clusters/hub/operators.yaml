@@ -64,7 +64,7 @@ spec:
           # openshift-frr-k8s, so it must act outside its own namespace.
           - name: ovn-recon
             namespace: ovn-recon
-            path: manifests/olm/ovn-recon/base
+            path: manifests/olm/ovn-recon/overlays/hub
           # OwnNamespace ONLY — the most restrictive install mode here, so the
           # OperatorGroup must set targetNamespaces.
           - name: rhacm
