@@ -1,0 +1,53 @@
+---
+apiVersion: k8s.ovn.org/v1
+kind: ClusterUserDefinedNetwork
+metadata:
+  name: vlan-1924
+  annotations:
+    argocd.argoproj.io/sync-wave: "11"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  # what namespaces should have access to this network
+  namespaceSelector:
+    matchLabels:
+      network/vlan-1924: ""
+  network:
+    topology: Localnet
+    localnet:
+      role: Secondary
+      # bridge mapping
+      physicalNetworkName: physnet-vmdata
+      vlan:
+        mode: Access
+        access:
+          id: 1924
+#      subnets:
+#        - "192.168.4.0/24"
+      ipam:
+        mode: Disabled
+---
+apiVersion: k8s.ovn.org/v1
+kind: ClusterUserDefinedNetwork
+metadata:
+  name: vlan-1926
+  annotations:
+    argocd.argoproj.io/sync-wave: "11"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  namespaceSelector:
+    matchLabels:
+      network/vlan-1926: ""
+  network:
+    topology: Localnet
+    localnet:
+      role: Secondary
+      # bridge mapping
+      physicalNetworkName: physnet-vmdata
+      vlan:
+        mode: Access
+        access:
+          id: 1926
+#      subnets:
+#        - "192.168.6.0/24"
+      ipam:
+        mode: Disabled
