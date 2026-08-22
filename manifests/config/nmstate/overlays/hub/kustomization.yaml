@@ -7,3 +7,4 @@ resources:
   # warning at the top of the file first — a wrong NIC isolates the node.
   - nncp-vmdata.yaml
   - cudn-localnet.yaml
+  - nncp-unroutable.yaml

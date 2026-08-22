@@ -1,0 +1,24 @@
+---
+# use a VLAN interface as alternative to OVS interface ()
+apiVersion: nmstate.io/v1
+kind: NodeNetworkConfigurationPolicy
+metadata:
+  annotations:
+    description: Add VLAN int to multihome on non-routable storage net
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: storage-vlan
+spec:
+  desiredState:
+    interfaces:
+      - name: ens224.456
+        type: vlan
+        state: up
+        vlan:
+          base-iface: ens224
+          id: 456
+        ipv4:
+          enabled: true
+          dhcp: true
+        ipv6: { enabled: false }
+

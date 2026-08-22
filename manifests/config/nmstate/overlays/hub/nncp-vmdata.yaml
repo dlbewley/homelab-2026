@@ -32,23 +32,41 @@ spec:
     node-role.kubernetes.io/virtualization: ""
   desiredState:
     interfaces:
+
+      # Create an OVS Interface for IP rechability on VLAN attachment
+      - name: ovs-vlan-1920
+        type: ovs-interface
+        description: OVS inferface on VLAN 1920
+        state: up
+        ipv4:
+          enabled: true
+          dhcp: true
+        ipv6: { enabled: false }
+
+      # Create an OVS Bridge
       - name: br-vmdata
         description: Bridge to the lab Trunk network for VM traffic
         type: ovs-bridge
         state: up
-        ipv4:
-          enabled: false
-        ipv6:
-          enabled: false
+        ipv4: { enabled: false }
+        ipv6: { enabled: false }
         bridge:
           allow-extra-patch-ports: true
           options:
             mcast-snooping-enable: true
             stp: false
           port:
-           # Secondary 'Trunk' NIC of each virtualization node
+           # Attach Secondary 'Trunk' NIC of each virtualization node
             - name: ens224
+
+            # Attach the OVS Int to bridge as well
+            - name: ovs-vlan-1920
+              vlan:
+                mode: access
+                tag: 1920
+
     ovn:
+      # create a physical network name for this bridge
       bridge-mappings:
         # physicalNetworkName in CUDN/NAD
         - localnet: physnet-vmdata
