@@ -9,6 +9,8 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: storage-vlan
 spec:
+  nodeSelector:
+    node-role.kubernetes.io/virtualization: ""
   desiredState:
     interfaces:
       - name: ens224.456
