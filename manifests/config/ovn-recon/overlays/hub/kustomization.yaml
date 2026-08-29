@@ -16,5 +16,5 @@ patches:
         value: true
       - op: add
         path: /spec/collector/cache
-        value: { "storage": { "mode": "PVC", "claimName": "collector-cache" }}
+        value: { "storage": { "managed": "true" } }
 
