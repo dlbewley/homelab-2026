@@ -4,17 +4,3 @@ kind: Kustomization
 
 resources:
   - ../../base
-
-# The collector is disabled in ../../base as it is still experimental.
-patches:
-  - target:
-      kind: OvnRecon
-      name: ovn-recon
-    patch: |-
-      - op: replace
-        path: /spec/collector/enabled
-        value: true
-      - op: add
-        path: /spec/collector/cache
-        value: { "storage": { "managed": true } }
-
