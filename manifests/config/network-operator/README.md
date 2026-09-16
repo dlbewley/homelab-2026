@@ -1,8 +1,9 @@
 # network-operator
 
-Routing features on the cluster Network operator CR
-(`network.operator.openshift.io/cluster`): FRR, BGP route advertisements, and
-the gateway settings that BGP EVPN with primary CUDNs requires.
+Routing and policy features on the cluster Network operator CR
+(`network.operator.openshift.io/cluster`): FRR, BGP route advertisements, the
+gateway settings that BGP EVPN with primary CUDNs requires, and
+MultiNetworkPolicy for secondary networks.
 
 ## What this replaces
 
@@ -34,6 +35,7 @@ oc patch network.operator cluster --type merge --patch \
 | `defaultNetwork.ovnKubernetesConfig.routeAdvertisements` | `Enabled` | Turns on BGP advertisement of pod networks; makes `RouteAdvertisements` CRs functional |
 | `…gatewayConfig.routingViaHost` | `true` | Local gateway mode: egress traffic uses the host routing table, where FRR's learned routes live. Required for EVPN with primary CUDNs |
 | `…gatewayConfig.ipForwarding` | `Global` | Forwarding on all host interfaces, not only OVN-managed ones |
+| `useMultiNetworkPolicy` | `true` | Enables the `MultiNetworkPolicy` CRD and controller, so NetworkPolicy-style rules can govern secondary (Multus) network attachments. Defaults to `false`. See [Configuring multi-network policy](https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html-single/multiple_networks/index#configuring-multi-network-policy) |
 
 **Future test** for `ipForwarding`: return to the default `Restricted` and
 enable forwarding only on VTEPs and selective interfaces (via sysctl / NNCP)
@@ -82,7 +84,17 @@ only the declared fields client-side.
 pre-existing, and required for the cluster to function. ArgoCD merges fields
 into it; it must never delete it.
 
+Unlike the four routing fields, `useMultiNetworkPolicy` was never applied by
+hand — but an unset field has no owner, so server-side apply sets it without
+conflict either way.
+
 ## Verifying
+
+The MultiNetworkPolicy CRD appears once enabled:
+
+```bash
+oc get crd multi-networkpolicies.k8s.cni.cncf.io
+```
 
 FRR pods appear once the provider is enabled:
 

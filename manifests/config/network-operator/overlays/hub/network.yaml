@@ -19,6 +19,11 @@
 # default `Restricted` and enable forwarding only on VTEPs and selective
 # interfaces via sysctl/NNCP instead.
 #
+# useMultiNetworkPolicy: true enables the MultiNetworkPolicy CRD and its
+# controller, so NetworkPolicy-style rules can govern secondary (Multus)
+# network attachments. Defaults to false; only the hub overlay turns it on.
+# Docs: https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html-single/multiple_networks/index#configuring-multi-network-policy
+#
 # SERVER-SIDE APPLY IS EXPECTED TO WORK HERE, unlike imageregistry's Config
 # (see manifests/config/image-registry). The values were first applied by hand
 # with `oc patch`, so an Update manager owns these fields on the live object —
@@ -38,6 +43,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
+  useMultiNetworkPolicy: true
   additionalRoutingCapabilities:
     providers:
       - FRR
