@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Nothing cluster-agnostic yet: which routing features a cluster enables (FRR,
+# BGP route advertisements, EVPN gateway settings) is a per-cluster decision,
+# so the Network CR patch lives in overlays/<cluster>. The directory exists so
+# the component follows the repo's base/overlay shape and has somewhere to put
+# shared pieces later.
+resources: []

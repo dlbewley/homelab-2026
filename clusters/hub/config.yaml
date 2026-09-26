@@ -32,6 +32,13 @@ spec:
           - name: nmstate
             namespace: openshift-nmstate
             path: manifests/config/nmstate/overlays/hub
+          # Routing features (FRR, BGP, EVPN gateway settings) on the cluster
+          # Network operator CR. The CR is cluster-scoped and pre-existing;
+          # SSA merges git's fields into it and the resource carries
+          # Prune=false,Delete=false. See the component README.
+          - name: network-operator
+            namespace: openshift-network-operator
+            path: manifests/config/network-operator/overlays/hub
           - name: metallb
             namespace: metallb-system
             path: manifests/config/metallb/overlays/hub

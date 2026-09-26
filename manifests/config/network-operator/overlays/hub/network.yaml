@@ -1,0 +1,55 @@
+---
+# Routing features on the cluster Network operator CR. These replace four
+# hand-run `oc patch network.operator cluster` commands; git declares only the
+# fields below and server-side apply merges them into the operator-owned
+# object.
+#
+# additionalRoutingCapabilities.providers: FRR deploys the FRR-K8s daemon,
+# the prerequisite for advertising routes at all.
+#
+# routeAdvertisements: Enabled turns on BGP advertisement of pod networks
+# (the RouteAdvertisements CRD becomes usable once this is set).
+#
+# gatewayConfig.routingViaHost: true switches OVN to local gateway mode, which
+# BGP EVPN with primary CUDNs requires — traffic egresses via the host routing
+# table where FRR's learned routes live.
+#
+# gatewayConfig.ipForwarding: Global enables forwarding on all host
+# interfaces, not just the OVN-managed ones. Future test: leave this at the
+# default `Restricted` and enable forwarding only on VTEPs and selective
+# interfaces via sysctl/NNCP instead.
+#
+# useMultiNetworkPolicy: true enables the MultiNetworkPolicy CRD and its
+# controller, so NetworkPolicy-style rules can govern secondary (Multus)
+# network attachments. Defaults to false; only the hub overlay turns it on.
+# Docs: https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html-single/multiple_networks/index#configuring-multi-network-policy
+#
+# SERVER-SIDE APPLY IS EXPECTED TO WORK HERE, unlike imageregistry's Config
+# (see manifests/config/image-registry). The values were first applied by hand
+# with `oc patch`, so an Update manager owns these fields on the live object —
+# but SSA of an IDENTICAL value takes co-ownership without conflict; conflicts
+# only occur when changing a field owned by another manager. If the first sync
+# does report a conflict with cluster-network-operator, fall back to the
+# image-registry precedent: add ServerSideApply=false to the sync-options
+# annotation below.
+#
+# Prune=false,Delete=false because network/cluster is cluster-scoped and
+# pre-existing — created by the installer, required for the cluster to
+# function. ArgoCD must never delete it, only merge fields into it.
+apiVersion: operator.openshift.io/v1
+kind: Network
+metadata:
+  name: cluster
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  useMultiNetworkPolicy: true
+  additionalRoutingCapabilities:
+    providers:
+      - FRR
+  defaultNetwork:
+    ovnKubernetesConfig:
+      routeAdvertisements: Enabled
+      gatewayConfig:
+        routingViaHost: true
+        ipForwarding: Global
