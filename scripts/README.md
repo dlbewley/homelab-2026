@@ -9,6 +9,7 @@ the second needs a cluster; the third needs neither.
 | [`create-cluster-vms.sh`](create-cluster-vms.sh) | day 0 — provision | `govc` + vSphere |
 | [`attach-iso-boot.sh`](attach-iso-boot.sh) | day 0 — provision | `govc` + vSphere |
 | [`collect-nics.sh`](collect-nics.sh) | day 0 — inventory | `govc` + vSphere + `jq` |
+| [`destroy-cluster-vms.sh`](destroy-cluster-vms.sh) | day 0 — teardown | `govc` + vSphere + `jq` |
 | [`verify-channels.sh`](verify-channels.sh) | day 2 — cluster validation | logged-in `oc` + `jq` |
 | [`create-keycloak-realm-secrets.sh`](create-keycloak-realm-secrets.sh) | day 2 — secret bootstrap | `op` + `jq` |
 | [`create-github-oauth-secret.sh`](create-github-oauth-secret.sh) | day 2 — secret bootstrap | `op` + `jq` |
@@ -33,7 +34,7 @@ install.
 - [`govc`](https://github.com/vmware/govmomi/tree/main/govc)
 - `GOVC_URL`, `GOVC_USERNAME`, `GOVC_PASSWORD` exported in the environment
   (see [`../setup_env.sh`](../setup_env.sh))
-- `jq`, for `collect-nics.sh`
+- `jq`, for `collect-nics.sh` and `destroy-cluster-vms.sh`
 
 Every script here takes `--dry-run` (or `-o -`). Use it first.
 
@@ -150,6 +151,53 @@ Trunk NICs. Regenerate it before changing a `NodeNetworkConfigurationPolicy`:
 pointing a bridge at the wrong NIC will cut the node off the network.
 
 Output is not committed. Generate it when you need it.
+
+## `destroy-cluster-vms.sh` — burn down the node VMs
+
+The inverse of `create-cluster-vms.sh`: removes the node VMs so the cluster can
+be redeployed from scratch. Per VM it records the hardware, hard powers off,
+ejects every CD-ROM, then destroys the VM **and every attached disk** —
+including the 1 TB OSD disk on its EVO datastore.
+
+```bash
+./destroy-cluster-vms.sh --dry-run                # show the plan, change nothing
+```
+
+```bash
+./destroy-cluster-vms.sh                          # every node VM in the folder
+```
+
+```bash
+ONLY=store ./destroy-cluster-vms.sh bm-store-1    # one role, or named VMs
+```
+
+**Scoping.** Only VMs directly inside `FOLDER` (`/Garden/vm/bm-hub`) whose
+name matches `NAME_REGEX` (`^bm-(ctrl|cnv|store)-[0-9]+$`) are touched; any
+other VM is skipped with a warning, even when named on the command line. The
+vCenter holds plenty of unrelated VMs — including old `hub-*` IPI clusters — so
+both checks apply to every target. A real run asks you to type the folder name;
+`--yes` skips that.
+
+**Record first.** Before destroying anything it writes `collect-nics.sh`
+output and full device listings to `.bak/destroy-<folder>-<timestamp>/`
+(gitignored). The rebuilt VMs get **new MACs**, so the NIC facts in
+[`manifests/config/nmstate/overlays/hub/`](../manifests/config/nmstate/overlays/hub/)
+and any DHCP reservations need updating from the new hardware. The record is
+how you tell what changed.
+
+**Why eject.** Every node's CD-ROM points at the shared `[VMData]
+ISO/discovery.iso`. Destroy should leave ISO backings alone, but ejecting first
+means it never has to be trusted with that.
+
+**Leftovers.** After each destroy it checks the datastore directories the VM
+used and reports any that survived — a stray `osd-001.vmdk` would make the
+rebuild's `vm.disk.create` fail. `--purge-dirs` removes them, but only
+directories named exactly after the VM.
+
+**Not covered.** This removes vSphere hardware only. An Assisted Installer
+cluster also has a record on console.redhat.com; delete it there before
+reinstalling. The inventory folder is left in place, since
+`create-cluster-vms.sh` needs it to exist.
 
 ---
 
