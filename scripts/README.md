@@ -10,6 +10,7 @@ the second needs a cluster; the third needs neither.
 | [`attach-iso-boot.sh`](attach-iso-boot.sh) | day 0 — provision | `govc` + vSphere |
 | [`collect-nics.sh`](collect-nics.sh) | day 0 — inventory | `govc` + vSphere + `jq` |
 | [`destroy-cluster-vms.sh`](destroy-cluster-vms.sh) | day 0 — teardown | `govc` + vSphere + `jq` |
+| [`destroy-ipi-cluster.sh`](destroy-ipi-cluster.sh) | day 0 — teardown (reference) | `govc` + vSphere + `jq` + `openshift-install` |
 | [`verify-channels.sh`](verify-channels.sh) | day 2 — cluster validation | logged-in `oc` + `jq` |
 | [`create-keycloak-realm-secrets.sh`](create-keycloak-realm-secrets.sh) | day 2 — secret bootstrap | `op` + `jq` |
 | [`create-github-oauth-secret.sh`](create-github-oauth-secret.sh) | day 2 — secret bootstrap | `op` + `jq` |
@@ -198,6 +199,36 @@ directories named exactly after the VM.
 cluster also has a record on console.redhat.com; delete it there before
 reinstalling. The inventory folder is left in place, since
 `create-cluster-vms.sh` needs it to exist.
+
+## `destroy-ipi-cluster.sh` — burn down an IPI cluster (reference)
+
+**Reference only: dry-run tested against the old `hub-4k77l` cluster, never run
+for real.** Kept for tearing down an installer-provisioned (IPI) vSphere
+cluster. The hub this repo manages is an Assisted Installer cluster; use
+`destroy-cluster-vms.sh` for that.
+
+```bash
+./destroy-ipi-cluster.sh --metadata ~/src/homelab/202510/hub/metadata.json --dry-run
+```
+
+It wraps `openshift-install destroy cluster`, which deletes whatever carries
+the cluster's tag: VMs, RHCOS templates, the folder, the tag and tag category,
+the storage policy, and the CNS volumes behind PVCs. Around that it:
+
+- **records** the NICs, devices, CNS volumes and tagged objects under `.bak/` first,
+- **sweeps** untagged `<infra-id>-*` VMs in the cluster folder before the
+  installer runs. Templates added on day 2 carry no tag, like the
+  nested-virtualization template `hub-4k77l-rhcos-oak-cnv`, so the installer
+  would orphan them and fail to delete the non-empty folder. The
+  `hub-q7dgr-*`, `hub-v57jl-*` and `hub-tq2sk-*` VMs in `Infra/` and `legacy/`
+  look like leftovers of exactly this,
+- **builds `metadata.json`** from the `GOVC_*` credentials in a 0700 temp
+  directory that is deleted on exit, so the vCenter password never sits on disk,
+- **verifies** afterwards that the VMs, tag, tag category, storage policy, CNS
+  volumes, folder and datastore directories are gone, and exits 1 if not.
+
+It refuses to run if the folder holds any VM that is neither tagged nor named
+`<infra-id>-*`, because the installer deletes the folder.
 
 ---
 
