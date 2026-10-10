@@ -46,8 +46,9 @@ spec:
           - name: cert-manager
             namespace: cert-manager-operator
             path: manifests/olm/cert-manager/base
-          # AllNamespaces: it manages the Postgres Cluster in the keycloak
-          # namespace, not its own.
+          # AllNamespaces: it manages Postgres Clusters in its consumers'
+          # namespaces, not its own. Keycloak is not the only consumer — see
+          # manifests/config/cloudnative-pg/README.md before removing this.
           - name: cloudnative-pg
             namespace: cnpg-system
             path: manifests/olm/cloudnative-pg/base

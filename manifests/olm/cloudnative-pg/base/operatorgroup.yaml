@@ -1,8 +1,9 @@
 ---
 # AllNamespaces (empty spec), NOT targetNamespaces — the opposite of the
-# rhbk-operator next door, and for a concrete reason: the Postgres Cluster this
-# operator must manage lives in the `keycloak` namespace, not here. An
-# OwnNamespace install would simply never reconcile it.
+# rhbk-operator next door, and for a concrete reason: the Postgres Clusters this
+# operator must manage live in their consumers' namespaces, not here. `keycloak`
+# was the first; manifests/config/cloudnative-pg/README.md lists the rest. An
+# OwnNamespace install would simply never reconcile them.
 #
 # Supported modes for this package:
 #   OwnNamespace, SingleNamespace, MultiNamespace, AllNamespaces
