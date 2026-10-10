@@ -90,6 +90,12 @@ spec:
           - name: descheduler
             namespace: openshift-kube-descheduler-operator
             path: manifests/olm/descheduler/base
+          # Red Hat OpenShift AI. AllNamespaces-only. Pinned to stable-3.5,
+          # which is NOT the catalog default — see the Subscription. The
+          # operator alone deploys nothing; the DataScienceCluster is config.
+          - name: rhoai
+            namespace: redhat-ods-operator
+            path: manifests/olm/rhoai/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'

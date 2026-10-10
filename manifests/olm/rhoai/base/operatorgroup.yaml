@@ -1,0 +1,22 @@
+---
+# `spec: {}` requests AllNamespaces, the only mode this operator supports:
+#   oc get packagemanifest rhods-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.channels[]|select(.name=="stable-3.5")
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> AllNamespaces
+#
+# NAMED DELIBERATELY, and this component is why the rule exists in practice. The
+# hub's first RHOAI install was done through the console, which generated
+# redhat-ods-operator-xdfdf. A namespace may hold exactly ONE OperatorGroup; a
+# second makes OLM fail the CSV with TooManyOperatorGroups. That install was
+# removed completely before this one (homelab-2026-o8y.2), namespace included,
+# so there is nothing to collide with — but anyone adopting a console install
+# elsewhere must delete its OperatorGroup rather than add this one beside it.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: rhoai-operatorgroup
+  namespace: redhat-ods-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec: {}

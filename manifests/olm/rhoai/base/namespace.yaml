@@ -1,0 +1,19 @@
+---
+# Namespace name comes from the operator's own suggestion, not invented:
+#   oc get packagemanifest rhods-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.channels[]|select(.name=="stable-3.5")
+#      | .currentCSVDesc.annotations["operatorframework.io/suggested-namespace"]'
+#   -> redhat-ods-operator
+#
+# This holds the operator only. Everything it deploys lands in namespaces it
+# creates itself — redhat-ods-applications, redhat-ods-monitoring and, for
+# Models-as-a-Service, redhat-ai-gateway-infra, models-as-a-service and
+# ai-tenants. None of those are declared in git.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: redhat-ods-operator
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
