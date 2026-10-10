@@ -35,6 +35,7 @@ straight:
 | Component | Shape | Why |
 |---|---|---|
 | `metallb`, `external-secrets` | `spec: {}` | AllNamespaces is the **only** mode the operator supports |
+| `connectivity-link` | `spec: {}` | AllNamespaces is the **only** mode the operator supports |
 | `workload-availability` | `spec: {}` | AllNamespaces is the **only** mode either operator supports |
 | `cluster-observability` | `spec: {}` | AllNamespaces is the **only** mode the operator supports |
 | `cloudnative-pg` | `spec: {}` | **chosen** — must manage the Postgres `Cluster` in the `keycloak` namespace |
@@ -117,6 +118,7 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | ovn-recon | ✅ | ✅ | OVN topology Console plugin, from `bewley-catalog`. Collector disabled in base, enabled on hub — see [its README](config/ovn-recon/README.md) |
 | workload-availability | ✅ | ✅ | Node Health Check + Self Node Remediation, toward VM high availability. **Two operators sharing one OperatorGroup** — a namespace may only have one — see [its README](config/workload-availability/README.md) |
 | cluster-observability | ✅ | ✅ | Cluster Observability Operator ([rhobs/observability-operator](https://github.com/rhobs/observability-operator)) + the **Dashboards** `UIPlugin`. The UIPlugin name is fixed by the API — see [its README](config/cluster-observability/README.md) |
+| connectivity-link | ✅ | ✅ | Red Hat Connectivity Link (Kuadrant) in `kuadrant-system`, plus the `Kuadrant` instance that deploys Authorino and Limitador. A prerequisite of RHOAI Models-as-a-Service, which enforces auth and token limits through it — see [its README](config/connectivity-link/README.md) |
 | rhacm | ✅ | ✅ | Operator + `MultiClusterHub`, plus 10Gi persistent storage for the Search database. **OwnNamespace-only**. Credentials are a separate issue — see [its README](config/rhacm/README.md) |
 | rhacm-observability | — | ✅ | Config-only. `MultiClusterObservability` on a Thanos bucket provisioned by an ObjectBucketClaim on ODF's RGW; `thanos.yaml` composed by an ExternalSecret rather than the catalog's setup Job. Every storage size set explicitly — the CRD defaults total 212Gi — see [its README](config/rhacm-observability/README.md) |
 | mtv | ✅ | ✅ | Migration Toolkit for Virtualization + `ForkliftController`, plus the lab vCenter as a source `Provider`. **OwnNamespace-only**, like rhacm. Credentials come from the same 1Password item as the ACM credential, under different key names — see [its README](config/mtv/README.md) |

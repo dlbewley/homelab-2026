@@ -1,0 +1,22 @@
+---
+# `spec: {}` requests AllNamespaces, the only mode this operator supports:
+#   oc get packagemanifest rhcl-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> AllNamespaces
+#
+# It has to be: the policies it reconciles (AuthPolicy, TokenRateLimitPolicy)
+# attach to Gateways and HTTPRoutes in other namespaces — openshift-ingress and
+# the model namespaces — not this one.
+#
+# Named deliberately, as everywhere else in this repo: a console install would
+# generate a random suffix, and a second OperatorGroup in a namespace makes OLM
+# refuse to resolve anything in it.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: connectivity-link-operatorgroup
+  namespace: kuadrant-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec: {}

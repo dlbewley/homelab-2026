@@ -1,0 +1,41 @@
+---
+# Red Hat Connectivity Link — the productised Kuadrant. Installing this one
+# package pulls in authorino-operator, limitador-operator and dns-operator
+# alongside it in the same namespace; they need no Subscriptions of their own.
+#
+# Here because Red Hat OpenShift AI's Models-as-a-Service cannot work without it:
+# MaaS enforces authentication and token rate limits with kuadrant.io AuthPolicy
+# and TokenRateLimitPolicy objects attached to its Gateway. Without this
+# operator the DataScienceCluster reports "Red Hat Connectivity Link not
+# installed".
+#
+# Channel verified against the live hub catalog on 2026-10-10:
+#   oc get packagemanifest rhcl-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> stable  (rhcl-operator.v1.4.3; it is the only channel)
+#
+# MaaS needs Connectivity Link 1.3 or later, and RHOAI 3.5 asks for 1.4.x.
+# Connectivity Link 1.4 is supported on OpenShift 4.19 to 4.22.
+#
+# The Subscription is named after the package. Upstream MaaS examples call it
+# `kuadrant-operator`; Red Hat's docs call it `rhcl-operator`, and that is the
+# name anything looking for the product by Subscription will expect.
+#
+# NO spec.config.env. Upstream MaaS suggests AUTH_SERVICE_TIMEOUT and
+# RATELIMIT_*_SERVICE_FAILURE_MODE here; no Red Hat document mentions either, so
+# they stay unset until there is a measured reason. ISTIO_GATEWAY_CONTROLLER_NAMES
+# is only for the OpenShift Service Mesh variant — on 4.19+ the Ingress Operator
+# is the gateway controller and needs no setting.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: rhcl-operator
+  namespace: kuadrant-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: rhcl-operator
+  channel: stable
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
