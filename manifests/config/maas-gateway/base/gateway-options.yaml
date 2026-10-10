@@ -1,0 +1,33 @@
+---
+# Shapes the Service the gateway controller generates for the Gateway, through
+# the Gateway's spec.infrastructure.parametersRef.
+#
+# type: ClusterIP — by default the controller creates a LoadBalancer Service.
+# This asks for a ClusterIP one instead, to be fronted by an ordinary OpenShift
+# Route. That keeps the gateway on the router's existing wildcard DNS and
+# certificate instead of needing its own address and DNS record.
+#
+# serving-cert-secret-name — the service-ca operator sees this annotation on the
+# generated Service and writes a certificate for <service>.<namespace>.svc into
+# the named Secret. The Gateway listener serves it, and the router trusts it
+# for the reencrypt hop without being given a CA. The Secret name here MUST
+# match the listener's certificateRefs in gateway.yaml.
+#
+# HOW WELL SUPPORTED IS THIS? See ../README.md. Short version: RHOAI exposes its
+# own dashboard gateway exactly this way and upstream MaaS documents it for
+# bare metal, but OpenShift's Gateway API documentation only describes a
+# LoadBalancer Service.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maas-gateway-options
+  namespace: openshift-ingress
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  service: |
+    metadata:
+      annotations:
+        service.beta.openshift.io/serving-cert-secret-name: "maas-gw-service-tls"
+    spec:
+      type: ClusterIP

@@ -103,6 +103,14 @@ spec:
           - name: mtv
             namespace: openshift-mtv
             path: manifests/config/mtv/overlays/hub
+          # The Gateway RHOAI Models-as-a-Service requires but does not
+          # create, exposed through the router by a reencrypt Route. Also
+          # creates the shared openshift-default GatewayClass, which is what
+          # turns on OpenShift's Gateway API controller. No operator of its
+          # own: the Gateway API CRDs ship with OpenShift.
+          - name: maas-gateway
+            namespace: openshift-ingress
+            path: manifests/config/maas-gateway/overlays/hub
           # NodeHealthCheck watching the virtualization nodes. Its CRD and
           # the SelfNodeRemediationTemplate it references both arrive with the
           # operators, so this converges by retry.
