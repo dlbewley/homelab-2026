@@ -134,6 +134,14 @@ spec:
           - name: oauth
             namespace: openshift-config
             path: manifests/config/oauth/overlays/hub
+          # DSCInitialization and DataScienceCluster: which RHOAI components
+          # run. Enables Models-as-a-Service, which additionally needs
+          # maas-gateway, connectivity-link (with Authorino TLS) and
+          # maas-database from this list. All converge by retry; MaaS reports
+          # NotReady until every one of them is in place.
+          - name: rhoai
+            namespace: redhat-ods-applications
+            path: manifests/config/rhoai/base
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'
