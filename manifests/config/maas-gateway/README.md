@@ -141,6 +141,12 @@ oc get gatewayclass openshift-default
 oc wait gateway/maas-default-gateway -n openshift-ingress --for=condition=Programmed --timeout=180s
 ```
 
+The Gateway will also report `LoadBalancerReady=False`, reason
+`LoadBalancerPending`. That is expected and harmless here: the Ingress Operator
+sets it because it assumes a LoadBalancer Service, and there deliberately is
+none. RHOAI's own `data-science-gateway` shows the same condition. ArgoCD still
+reports the Gateway Healthy.
+
 ```bash
 oc get svc -n openshift-ingress -l gateway.networking.k8s.io/gateway-name=maas-default-gateway
 ```
@@ -158,16 +164,16 @@ curl -sk -o /dev/null -w '%{http_code}\n' https://maas.apps.hub.lab.bewley.net/
 ```
 
 Before MaaS attaches any HTTPRoute there is nothing to route to, so a `404` from
-Envoy is the healthy answer (expected, not yet observed on this hub). A `503`
+Envoy is the healthy answer (seen on the hub 2026-10-11). A `503`
 from the router instead means it has no usable backend: check that the Secret
 `maas-gw-service-tls` exists and the gateway pods are Ready.
 
-## Not configured
+## Authorino TLS
 
-**Authorino TLS.** The Gateway carries
+The Gateway carries
 `security.opendatahub.io/authorino-tls-bootstrap: "true"`, which makes the
-maas-controller have the gateway speak TLS to Authorino. Authorino has to be set
-up to match — `homelab-2026-o8y.8`. Until then authenticated calls fail.
+maas-controller have the gateway speak TLS to Authorino. The matching Authorino
+configuration is in [connectivity-link](../connectivity-link/README.md#authorino-tls).
 
 ## References
 
