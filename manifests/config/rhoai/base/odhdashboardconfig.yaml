@@ -1,0 +1,37 @@
+---
+# Switches on the dashboard pages for Models-as-a-Service. Enabling MaaS in the
+# DataScienceCluster makes it work; these make it visible.
+#
+#   modelAsService   the Models-as-a-Service pages
+#   genAiStudio      Gen AI studio and its playground; needs the ogx component
+#   externalModels   the external models page (Technology Preview)
+#
+# THE OPERATOR CREATES THIS OBJECT, with its own defaults, when it deploys the
+# dashboard. This manifest is partial: server-side apply merges the three flags
+# into the operator's object and leaves everything else to it. Prune=false,
+# Delete=false, because the dashboard needs the object to exist.
+#
+# A CAUTION FOR A FRESH CLUSTER. If ArgoCD applies this before the operator has
+# created the object, ArgoCD creates it — containing only these three flags —
+# and upstream says the operator does not overwrite one that already exists.
+# The dashboard could then be missing its defaults (notebookController,
+# templateOrder and the rest). On the hub the object existed first, so this did
+# not arise. If it ever does: delete the object and let the operator recreate
+# it; ArgoCD will then merge the flags in.
+#   oc delete odhdashboardconfig odh-dashboard-config -n redhat-ods-applications
+#
+# Do NOT add maasAuthPolicies. Red Hat's guide still lists it; the CRD marks it
+# deprecated and rejects setting it where it was not already set.
+apiVersion: opendatahub.io/v1alpha
+kind: OdhDashboardConfig
+metadata:
+  name: odh-dashboard-config
+  namespace: redhat-ods-applications
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  dashboardConfig:
+    modelAsService: true
+    genAiStudio: true
+    externalModels: true
