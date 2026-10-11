@@ -17,7 +17,7 @@ components.
 | Consumer | `Cluster` | Lives in | State |
 |---|---|---|---|
 | [keycloak](../keycloak) | `keycloak-db` | `keycloak` | in git, running |
-| Red Hat OpenShift AI — Models-as-a-Service (`maas-api`) | not yet written | to be decided | planned, `homelab-2026-o8y.7` |
+| [maas-database](../maas-database) — Red Hat OpenShift AI Models-as-a-Service (`maas-api`) | `maas-db` | `maas-db` | in git |
 | Red Hat OpenShift AI — MLflow backend store | not yet written | to be decided | planned, `homelab-2026-o8y.10` |
 
 **Keycloak is no longer the only reason this operator is installed.** Every
@@ -75,15 +75,18 @@ namespace. `fqdn-uri` is the one to use from anywhere else.
 | Consumer | Wants | Fit |
 |---|---|---|
 | Keycloak | `username` and `password`, by reference from the Keycloak CR | direct |
-| `maas-api` | Secret `maas-db-config`, key `DB_CONNECTION_URL`, in `redhat-ai-gateway-infra`, as `postgresql://…?sslmode=require` | **not direct** — different Secret name, key and namespace |
+| `maas-api` | Secret `maas-db-config`, key `DB_CONNECTION_URL`, in `redhat-ai-gateway-infra`, as `postgresql://…?sslmode=require` | **not direct** — different Secret name, key and namespace. Built by an `ExternalSecret` |
 | MLflow | Secret `mlflow-db-credentials`, key `backend-store-uri`, in `redhat-ods-applications` | **not direct** — same problem |
 
-Keycloak could take the generated Secret as it is. The two RHOAI consumers
-cannot: each wants a complete connection URL under its own key name, in a
-namespace the operator does not write to. Something has to build that Secret
-without putting a credential in git. That is the open design question in
-`homelab-2026-o8y.7`, and whatever answers it for `maas-api` should be reused
-for MLflow.
+Keycloak takes the generated Secret as it is. The two RHOAI consumers cannot:
+each wants a complete connection URL under its own key name, in a namespace the
+operator does not write to.
+
+[maas-database](../maas-database) solves that without putting a credential in
+git or in 1Password: a `ClusterSecretStore` using External Secrets' Kubernetes
+provider reads `<name>-app` in the database's namespace, and an `ExternalSecret`
+in the consumer's namespace templates `fqdn-uri` into the key the consumer
+wants. MLflow should reuse that construction rather than invent another.
 
 - CloudNativePG: [Connecting from an application — Secrets](https://cloudnative-pg.io/docs/1.30/applications)
 

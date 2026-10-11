@@ -1,0 +1,40 @@
+---
+# PostgreSQL for maas-api, managed by CloudNativePG.
+#
+# maas-api keeps API key metadata here: hashed tokens, subscription bindings,
+# expiry and revocation. It will not start without a database — the pod
+# crash-loops until it can connect and run its schema migration — and Red Hat's
+# guide lists PostgreSQL 14 or later, provided by you, as a prerequisite. RHOAI
+# ships none.
+#
+# CloudNativePG creates, for a Cluster named maas-db:
+#   maas-db-rw     Service, always the current primary
+#   maas-db-ro     Service, replicas only
+#   maas-db-app    Secret with the application user's credentials and URIs
+# maas-api cannot read maas-db-app directly: it wants one key,
+# DB_CONNECTION_URL, in a Secret called maas-db-config in a different
+# namespace. connection-secret.yaml builds that from this.
+#
+# No imageName, so the operator's default PostgreSQL is used (18.x when this
+# was written, the same as keycloak-db).
+#
+# storageClass is deliberately omitted so it uses the cluster default, as
+# keycloak-db does. That keeps this file free of cluster-specific values.
+#
+# 2Gi is generous: the data is one small row per API key.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: maas-db
+  namespace: maas-db
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  instances: 2
+  primaryUpdateStrategy: unsupervised
+  storage:
+    size: 2Gi
+  bootstrap:
+    initdb:
+      database: maas
+      owner: maas
