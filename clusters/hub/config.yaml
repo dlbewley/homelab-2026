@@ -60,6 +60,12 @@ spec:
           - name: external-secrets
             namespace: external-secrets-operator
             path: manifests/config/external-secrets/overlays/hub
+          # The Kuadrant instance, which is what makes the operator deploy
+          # Authorino and Limitador. Its CRD arrives with the rhcl-operator
+          # CSV, so this converges by retry.
+          - name: connectivity-link
+            namespace: kuadrant-system
+            path: manifests/config/connectivity-link/base
           # Operator in cert-manager-operator, operand in cert-manager.
           # Wires the router at sync wave 20; see the component README.
           - name: cert-manager

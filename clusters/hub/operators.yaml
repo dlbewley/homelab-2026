@@ -43,6 +43,13 @@ spec:
           - name: external-secrets
             namespace: external-secrets-operator
             path: manifests/olm/external-secrets/base
+          # Red Hat Connectivity Link (Kuadrant). AllNamespaces-only: its
+          # policies attach to Gateways and HTTPRoutes in other namespaces.
+          # Required by RHOAI Models-as-a-Service. The Kuadrant instance is
+          # in the config layer.
+          - name: connectivity-link
+            namespace: kuadrant-system
+            path: manifests/olm/connectivity-link/base
           - name: cert-manager
             namespace: cert-manager-operator
             path: manifests/olm/cert-manager/base

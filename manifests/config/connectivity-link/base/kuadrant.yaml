@@ -1,0 +1,22 @@
+---
+# The Kuadrant instance. Creating it is what makes the operator deploy Authorino
+# (authentication and authorization) and Limitador (rate limiting); until it
+# exists the policy CRDs are installed but nothing enforces them.
+#
+# No spec, exactly as Red Hat's install guide has it. The name and namespace are
+# what RHOAI's Models-as-a-Service looks for: a Kuadrant named `kuadrant` in
+# kuadrant-system, Ready.
+#
+# The CRD arrives with the operator's CSV, so this Application fails and retries
+# until manifests/olm/connectivity-link has installed.
+#
+# NOT SET HERE: spec.observability.enable. It makes Kuadrant create the
+# PodMonitors that MaaS usage metrics are built on. Left for the change that
+# turns MaaS observability on, so it is a deliberate step rather than a default.
+apiVersion: kuadrant.io/v1beta1
+kind: Kuadrant
+metadata:
+  name: kuadrant
+  namespace: kuadrant-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

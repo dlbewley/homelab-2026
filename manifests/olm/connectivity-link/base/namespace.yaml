@@ -1,0 +1,26 @@
+---
+# This package has NO operatorframework.io/suggested-namespace annotation, so
+# the name is a deliberate choice. kuadrant-system is what Red Hat's Connectivity
+# Link install guide uses in every example, and it is where the Kuadrant CR,
+# Authorino and Limitador are expected to live regardless of where the operator
+# itself is installed.
+#
+# The RHOAI 3.5 Models-as-a-Service guide says the operator should be "installed
+# in the openshift-operators namespace" instead. The two Red Hat guides disagree
+# on that one point and agree on everything else. This repo gives every operator
+# its own namespace and a named OperatorGroup and puts nothing in
+# openshift-operators; what MaaS functionally needs is the AllNamespaces install
+# mode, which this has. See manifests/config/connectivity-link/README.md.
+#
+# NO openshift.io/cluster-monitoring LABEL, unlike most namespaces in olm/. That
+# label hands a namespace to the platform Prometheus and makes user workload
+# monitoring ignore it. Neither Red Hat guide sets it on this namespace, and the
+# MaaS usage metrics are built on PodMonitors Kuadrant creates here. Following
+# the guides is the safe reading; whether the platform Prometheus would serve
+# those metrics equally well has not been tested. Deliberate, not an omission.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kuadrant-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
