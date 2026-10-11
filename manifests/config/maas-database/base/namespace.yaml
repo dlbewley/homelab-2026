@@ -1,0 +1,16 @@
+---
+# A namespace this repo owns, for the database and nothing else.
+#
+# NOT redhat-ai-gateway-infra, where maas-api expects to find its connection
+# Secret. That namespace belongs to RHOAI: the operator deletes it when
+# Models-as-a-Service is removed, and a database living there would go with it.
+# Keeping the data here means turning MaaS off and on again does not destroy
+# every issued API key.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: maas-db
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

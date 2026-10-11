@@ -82,6 +82,14 @@ spec:
           - name: keycloak
             namespace: keycloak
             path: manifests/config/keycloak/overlays/hub
+          # PostgreSQL for RHOAI's maas-api, on CloudNativePG, plus the
+          # ExternalSecret that reshapes its generated credentials into the
+          # Secret maas-api reads in redhat-ai-gateway-infra. Lives in its
+          # own namespace so removing Models-as-a-Service does not take the
+          # issued API keys with it.
+          - name: maas-database
+            namespace: maas-db
+            path: manifests/config/maas-database/base
           # Enables the internal registry, which bare-metal installs leave
           # Removed, on a ReadWriteMany CephFS volume.
           - name: image-registry
