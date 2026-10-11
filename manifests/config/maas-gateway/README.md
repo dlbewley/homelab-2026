@@ -164,9 +164,60 @@ curl -sk -o /dev/null -w '%{http_code}\n' https://maas.apps.hub.lab.bewley.net/
 ```
 
 Before MaaS attaches any HTTPRoute there is nothing to route to, so a `404` from
-Envoy is the healthy answer (seen on the hub 2026-10-11). A `503`
+Envoy is the healthy answer (seen on the hub 2026-10-11). Once MaaS is enabled
+the healthy answer becomes `401`, because the gateway now requires
+authentication on every path. A `503`
 from the router instead means it has no usable backend: check that the Secret
 `maas-gw-service-tls` exists and the gateway pods are Ready.
+
+## If every request returns 503
+
+Seen on the hub the first time MaaS attached its policies to this Gateway. Every
+path returned an empty `503`, including ones with no route, and the gateway's
+access log tagged each request `wasm_fail_stream`:
+
+```bash
+oc logs -n openshift-ingress deploy/maas-default-gateway-openshift-default | grep -iE 'wasm|Retry limit'
+```
+
+```
+Retry limit exceeded for fetching data from remote data source.
+Plugin kuadrant-wasm-shim failed to load
+Plugin configured to fail closed failed to load
+```
+
+Connectivity Link enforces its policies in Envoy with a WebAssembly filter, which
+Envoy downloads from the Kuadrant operator
+(`http://kuadrant-operator-wasm.kuadrant-system.svc.cluster.local:8082/plugin.wasm`).
+The download is attempted once, at the moment the policies are first attached.
+On the hub that one attempt failed within 80 milliseconds — the upstream it uses
+is added by the same configuration push — and the filter fails closed and does
+not try again. The URL answered normally from inside the same pods minutes
+later.
+
+It is a first-attach race, not a configuration error. Replace the gateway pods
+one at a time, so the Route keeps a backend throughout; a pod that starts with
+the configuration already in place loads the filter cleanly:
+
+```bash
+oc get pods -n openshift-ingress -l gateway.networking.k8s.io/gateway-name=maas-default-gateway
+```
+
+```bash
+oc delete pod -n openshift-ingress <one-pod-name>
+```
+
+```bash
+oc rollout status -n openshift-ingress deploy/maas-default-gateway-openshift-default
+```
+
+Then the other. Healthy afterwards is `401` without credentials, not `503`:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://maas.apps.hub.lab.bewley.net/v1/models
+```
+
+Expect this again on a cluster rebuild.
 
 ## Authorino TLS
 

@@ -85,12 +85,9 @@ declaring it lets the Secret be in place first. Red Hat's guide says that when
 the Secret exists before MaaS is enabled `maas-api` starts cleanly, and
 otherwise it must be restarted.
 
-**Not yet confirmed:** that the controller is content with a namespace it did
-not create. Its log line on an existing one is `managed namespace already
-exists`, which suggests it is. If MaaS misbehaves over this, remove the
-Namespace from `connection-secret.yaml`; the ExternalSecret will then fail and
-retry until the controller has made the namespace, and `maas-api` will need one
-restart.
+The two coexist: on the hub the controller created the namespace, ArgoCD's
+declaration merged into it without complaint from either, and
+`MaasTenantConfig` reports it as the infrastructure namespace.
 
 ## Order
 
@@ -105,11 +102,17 @@ Within the Application, by sync wave:
                                      writes once the Cluster has bootstrapped
 ```
 
-The ExternalSecret reports an error for the first minute or so, until
-`maas-db-app` exists. It converges on its own.
+**The Secret takes about six minutes to appear on a first sync**, longer than
+the waves suggest. ArgoCD knows how to judge a CloudNativePG `Cluster` and holds
+waves 2 to 4 until both instances are healthy. That is what happened on the hub.
 
-This component does not depend on RHOAI being configured. It can and should land
-before the DataScienceCluster enables Models-as-a-Service.
+So this component does not depend on RHOAI being configured, but it only gets
+its Secret in place first if it lands several minutes ahead. When it does not —
+on the hub both arrived in the same sync — the maas-controller creates
+`redhat-ai-gateway-infra` itself and starts `maas-api`, which restarts a few
+times with no Secret to read and then comes up on its own once it exists. No
+manual restart was needed, despite what Red Hat's guide says. Harmless either
+way.
 
 ## Verifying
 

@@ -23,6 +23,8 @@ Tracked as the epic `homelab-2026-o8y`.
 | `rhods-operator` | `manifests/olm/rhoai` | The operator. Deploys nothing by itself |
 | `DSCInitialization/default-dsci` | `base/dscinitialization.yaml` | Platform settings. Created by the operator; co-owned here |
 | `DataScienceCluster/default-dsc` | `base/datasciencecluster.yaml` | Which components run |
+| `OdhDashboardConfig/odh-dashboard-config` | `base/odhdashboardconfig.yaml` | Three flags that make MaaS visible in the dashboard. Created by the operator; patched here |
+| `Deployment/maas-controller` | `overlays/hub/maas-controller-memory.yaml` | Memory limit only. The shipped one is too small for the hub |
 
 ## Components
 
@@ -88,26 +90,75 @@ It also makes the operator create the **dashboard's own gateway** — Gateway
 `data-science-gateway` in `openshift-ingress`, on a GatewayClass of its own,
 with a Route. That is separate from the MaaS gateway and not managed here.
 
-## Not configured: dashboard feature flags
+## Dashboard feature flags
 
-The MaaS pages in the dashboard are switched on in `OdhDashboardConfig`
-(`odh-dashboard-config` in `redhat-ods-applications`), under
-`spec.dashboardConfig`:
+Enabling MaaS in the DataScienceCluster makes it work. These make it visible.
+They live in `OdhDashboardConfig` (`odh-dashboard-config` in
+`redhat-ods-applications`), under `spec.dashboardConfig`, and all default to off:
 
 | Flag | Effect |
 |---|---|
-| `modelAsService` | The Models-as-a-Service UI |
+| `modelAsService` | The Models-as-a-Service pages |
 | `genAiStudio` | Gen AI studio and playground; needs `ogx` Managed |
 | `externalModels` | The external models page (Technology Preview) |
 
-They are **deliberately not declared yet.** The operator creates that object,
-with its defaults, when it deploys the dashboard, and upstream says it does not
-overwrite one that already exists. If ArgoCD applied a partial object first, the
-dashboard could be left with only the fields git declares. So the flags follow
-once the object exists, as a server-side-apply patch like the others here.
+The operator creates that object when it deploys the dashboard. The manifest
+here is partial: server-side apply merges the three flags in and leaves the rest
+of the object to the operator.
+
+**On a fresh cluster this can race.** If ArgoCD applies the manifest before the
+operator has created the object, ArgoCD creates it with only these three flags,
+and upstream says the operator does not overwrite one that already exists. The
+dashboard could then be missing its defaults. On the hub the object existed
+first. If it ever happens, delete the object, let the operator recreate it, and
+ArgoCD will merge the flags back in:
+
+```bash
+oc delete odhdashboardconfig odh-dashboard-config -n redhat-ods-applications
+```
 
 Do **not** set `maasAuthPolicies`. Red Hat's guide still lists it; the CRD marks
 it deprecated and its validation rejects setting it on a new install.
+
+The CRD has other flags that may matter for agent work later — `toolCalling`,
+`genAiTracing`, `aiAssetCustomEndpoints` — none of which are set.
+
+## The maas-controller needs more memory than it ships with
+
+`overlays/hub/maas-controller-memory.yaml` raises one number: the memory limit
+on RHOAI's `maas-controller`, from 512Mi to 1Gi.
+
+With the shipped limit the controller could not stay up on the hub. It reached
+400–510Mi within 90 seconds of starting and was OOM-killed, five times in ten
+minutes, into `CrashLoopBackOff`. Given room it settles at 550–615Mi. It is not
+a leak or a reconcile loop — it dies filling its caches, and the hub has about
+1,600 Secrets and 1,400 ConfigMaps in 125 namespaces because it is also the ACM
+hub.
+
+**It is easy to miss.** The controller's first reconcile completed before its
+first kill, so `maas-api` and the gateway policies existed and
+`ModelsAsAServiceReady` said `True`. Requests are served without it. But a new
+model, subscription or auth policy is not reconciled by a controller that is
+dead most of the time. Look at the pod, not the condition:
+
+```bash
+oc get pods -n redhat-ods-applications -l control-plane=maas-controller
+```
+
+```bash
+oc get pod -n redhat-ods-applications -l control-plane=maas-controller -o jsonpath='{range .items[*]}{.status.containerStatuses[0].restartCount} restarts, last: {.status.containerStatuses[0].lastState.terminated.reason}{"\n"}{end}'
+```
+
+There is no supported setting for this. Neither the `AIGateway` CR nor the maas
+`Config` CR has a resources field, so the manifest is a partial `Deployment`
+merged in by server-side apply, `Prune=false,Delete=false`. The
+ai-gateway-operator was seen to re-apply the Deployment seconds after the limit
+was changed and leave the new value alone.
+
+It is in `overlays/hub` because the right number depends on the size of the
+cluster. Revisit it after an RHOAI upgrade: upstream has since restricted this
+controller's Secret cache to a single namespace, which should bring the need
+down and may make the override unnecessary. Tracked as `homelab-2026-o8y.11`.
 
 ## Verifying
 
