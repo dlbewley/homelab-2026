@@ -37,7 +37,7 @@ straight:
 | `metallb`, `external-secrets` | `spec: {}` | AllNamespaces is the **only** mode the operator supports |
 | `workload-availability` | `spec: {}` | AllNamespaces is the **only** mode either operator supports |
 | `cluster-observability` | `spec: {}` | AllNamespaces is the **only** mode the operator supports |
-| `cloudnative-pg` | `spec: {}` | **chosen** — must manage the Postgres `Cluster` in the `keycloak` namespace |
+| `cloudnative-pg` | `spec: {}` | **chosen** — must manage Postgres `Cluster`s in its consumers' namespaces (`keycloak` today) |
 | `ovn-recon` | `spec: {}` | **chosen** — the collector probes `openshift-ovn-kubernetes` and `openshift-frr-k8s` |
 | everything else | `targetNamespaces` | own namespace is sufficient |
 
@@ -110,7 +110,7 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | virtualization | ✅ | ✅ | Workloads pinned to `node-role.kubernetes.io/virtualization` |
 | external-secrets | ✅ | ✅ | `onepasswordSDK` provider against the `eso` vault. The service-account token secret is a deliberate manual step — see [its README](config/external-secrets/README.md) |
 | cert-manager | ✅ | ✅ | Private CA `homelab-ca`; wildcard cert on the router; trust-manager (**Technology Preview**) distributes the CA to `openshift-config` and the cluster trust bundle — see [its README](config/cert-manager/README.md) |
-| cloudnative-pg | ✅ | ✅ | Postgres operator, AllNamespaces so it can manage the Cluster in `keycloak`. Config is only the `cnpg-pull-secret` its own Deployment references — the Postgres `Cluster` belongs to keycloak |
+| cloudnative-pg | ✅ | ✅ | Postgres operator, shared: AllNamespaces so it can manage a `Cluster` in each consumer's namespace. Keycloak today; RHOAI Models-as-a-Service and MLflow are planned consumers. Config is only the `cnpg-pull-secret` its own Deployment references — each `Cluster` belongs to its consumer — see [its README](config/cloudnative-pg/README.md) |
 | keycloak | ✅ | ✅ | RHBK + CloudNativePG database, passthrough TLS from `homelab-ca`, and the `homelab` realm with the `ocp-hub` OIDC client — see [its README](config/keycloak/README.md) |
 | oauth | — | ✅ | Keycloak (`claim`) and GitHub (`add`, org `dwnwrd`) identity providers; group membership stays static in `bootstrap/rbac.yaml` — see [its README](config/oauth/README.md) |
 | bewley-catalog | ✅ | — | `CatalogSource` for self-published operators. Not an operator install — no namespace, OperatorGroup or Subscription |
