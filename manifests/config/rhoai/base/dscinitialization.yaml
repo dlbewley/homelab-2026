@@ -1,0 +1,38 @@
+---
+# Platform-wide settings for Red Hat OpenShift AI: where its components and
+# monitoring live, and whether they get the cluster's trusted CA bundle.
+#
+# THE OPERATOR CREATES THIS OBJECT ITSELF, as soon as it is installed, with
+# exactly the values below. It is declared here so those values are a reviewed
+# decision rather than whatever the operator happened to default to, and so
+# drift shows up in ArgoCD. Server-side apply co-owns the fields; nothing here
+# changes what is running.
+#
+# Prune=false,Delete=false is load-bearing. Deleting the DSCInitialization tears
+# down the platform. Removing this file must stop managing it, not delete it.
+#
+# applicationsNamespace cannot be changed after install.
+#
+# trustedCABundle Managed with no customCABundle: components get the cluster's
+# trusted CA bundle, which already includes homelab-ca through the proxy
+# trustedCA that manifests/config/cert-manager sets. Nothing to add here.
+#
+# The DSCInitialization also causes the operator to create the dashboard's own
+# gateway (Gateway data-science-gateway in openshift-ingress, on its own
+# data-science-gateway-class, with a Route). That is unrelated to
+# manifests/config/maas-gateway.
+apiVersion: dscinitialization.opendatahub.io/v2
+kind: DSCInitialization
+metadata:
+  name: default-dsci
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  applicationsNamespace: redhat-ods-applications
+  monitoring:
+    managementState: Managed
+    namespace: redhat-ods-monitoring
+    metrics: {}
+  trustedCABundle:
+    managementState: Managed

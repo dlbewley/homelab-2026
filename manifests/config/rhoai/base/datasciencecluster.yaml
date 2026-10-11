@@ -1,0 +1,103 @@
+---
+# Which parts of Red Hat OpenShift AI this cluster runs. Installing the operator
+# deploys nothing; this object does.
+#
+# EVERY COMPONENT IS LISTED, including the ones that are off. Several default to
+# Managed if omitted (kserve.nim is one), so leaving a component out is not the
+# same as turning it off. Listing them all also makes turning one on a one-line,
+# reviewable change.
+#
+# The selection is the decision recorded in homelab-2026-o8y.1: the goal is
+# Models-as-a-Service on a cluster with NO GPU, so anything that exists to
+# train models or schedule accelerators is Removed. See ../README.md for the
+# reasoning per component.
+apiVersion: datasciencecluster.opendatahub.io/v2
+kind: DataScienceCluster
+metadata:
+  name: default-dsc
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  components:
+    # ---- on ---------------------------------------------------------------
+
+    # The web UI, including the Models-as-a-Service admin pages.
+    dashboard:
+      managementState: Managed
+
+    # Models-as-a-Service. In 3.5 it lives HERE, not under kserve.
+    # It needs four things this object cannot provide, each its own component:
+    #   the Gateway             manifests/config/maas-gateway
+    #   Connectivity Link       manifests/olm|config/connectivity-link
+    #   Authorino TLS           manifests/config/connectivity-link
+    #   a PostgreSQL database   manifests/config/maas-database
+    aigateway:
+      managementState: Managed
+      modelsAsAService:
+        managementState: Managed
+      # Batch inference over locally served models. Nothing to batch here yet.
+      batchGateway:
+        managementState: Removed
+
+    # Model serving. Not needed for MaaS to front external models, but it is the
+    # only way to put a locally served model behind MaaS later.
+    #
+    # kserve.modelsAsService is DELIBERATELY ABSENT. It is the deprecated 3.4
+    # location for MaaS. The API defaults it to Removed, which is right; do not
+    # set it to Managed here, and note that the field cannot be changed back
+    # once it has been.
+    kserve:
+      managementState: Managed
+      # NVIDIA NIM. Defaults to Managed; needs NVIDIA GPUs and an NGC key.
+      nim:
+        managementState: Removed
+      modelCache:
+        managementState: Removed
+      wva:
+        managementState: Removed
+
+    # Notebooks. Cheap, and somewhere to call the MaaS endpoint from.
+    workbenches:
+      managementState: Managed
+
+    # OGX, the renamed Llama Stack. Backs the gen AI playground.
+    # Red Hat's docs list GPU nodes among its prerequisites; whether it is
+    # useful against MaaS-served remote models on a GPU-less cluster is untested.
+    ogx:
+      managementState: Managed
+
+    # Installs the MLflow operator only. An MLflow instance is a separate
+    # object and a separate piece of work (homelab-2026-o8y.10).
+    mlflowoperator:
+      managementState: Managed
+
+    # ---- off --------------------------------------------------------------
+
+    # Superseded by ogx.
+    llamastackoperator:
+      managementState: Removed
+
+    # Training and distributed compute: pointless without a GPU. `trainer`
+    # additionally requires the JobSet operator, which is not installed.
+    trainer:
+      managementState: Removed
+    trainingoperator:
+      managementState: Removed
+    ray:
+      managementState: Removed
+    kueue:
+      managementState: Removed
+    sparkoperator:
+      managementState: Removed
+
+    # Not needed to reach working Models-as-a-Service.
+    aipipelines:
+      managementState: Removed
+    feastoperator:
+      managementState: Removed
+    modelregistry:
+      managementState: Removed
+    trustyai:
+      managementState: Removed
+    mcplifecycleoperator:
+      managementState: Removed
