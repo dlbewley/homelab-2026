@@ -1,0 +1,43 @@
+---
+# Red Hat OpenShift AI Self-Managed. The package is still called rhods-operator
+# (Red Hat OpenShift Data Science), as are its namespaces.
+#
+# Channel verified against the live hub catalog on 2026-10-10:
+#   oc get packagemanifest rhods-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel, (.status.channels[]|select(.name=="stable-3.5")|.currentCSV)'
+#   -> stable-3.x
+#   -> rhods-operator.3.5.1
+#
+# PINNED TO stable-3.5, WHICH IS NOT THE CATALOG DEFAULT. The default,
+# stable-3.x, resolves to the same 3.5.1 today and will move to 3.6 on its own
+# when that ships; `beta` is already at 3.6.0-ea.1. Each 3.x minor so far has
+# moved things in the DataScienceCluster (3.5 moved Models-as-a-Service from
+# kserve to aigateway), so crossing that line should be a reviewed change to
+# this file, not something a catalog refresh does overnight.
+# An eus-3.5 channel also exists for the extended-support stream.
+#
+# verify-channels: pin
+# The line above tells scripts/verify-channels.sh that differing from the
+# default channel is intended here. It still checks that the pinned channel
+# exists and that the OperatorGroup suits it.
+#
+# Installing the operator does not deploy OpenShift AI. On its own it creates a
+# default DSCInitialization and waits; the DataScienceCluster that turns
+# components on is the config layer (homelab-2026-o8y.5).
+#
+# Red Hat's support matrix lists OpenShift 4.22 for RHOAI 3.5, although the 3.5
+# install guide's own requirements section still says 4.19 to 4.20:
+#   https://access.redhat.com/articles/rhoai-supported-configs-3.x
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: rhods-operator
+  namespace: redhat-ods-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: rhods-operator
+  channel: stable-3.5
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

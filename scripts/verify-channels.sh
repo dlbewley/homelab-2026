@@ -10,6 +10,12 @@
 # most others just track 'stable'), so re-run this after a cluster upgrade and
 # whenever a component is added.
 #
+# A Subscription that deliberately pins something other than the default
+# channel says so with a comment line reading exactly
+#   # verify-channels: pin
+# It is then reported as 'pinned' instead of DRIFT. Pass 2 still applies, so a
+# pinned channel that has left the catalog is caught there.
+#
 # Usage: scripts/verify-channels.sh
 set -euo pipefail
 
@@ -37,6 +43,8 @@ while IFS= read -r sub; do
     status="NOT IN CATALOG"; got="-"; drift=1
   elif [[ "$want" == "$got" ]]; then
     status="ok"
+  elif grep -qx '# verify-channels: pin' "$sub"; then
+    status="pinned"
   else
     status="DRIFT"; drift=1
   fi
