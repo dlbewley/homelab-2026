@@ -1,0 +1,58 @@
+---
+# The Gateway that Red Hat OpenShift AI's Models-as-a-Service routes every model
+# and its own API through. RHOAI does not create it: an administrator must, and
+# until it exists the DataScienceCluster reports
+#   gateway openshift-ingress/maas-default-gateway not found
+#
+# The name and namespace are fixed. They are the maas-controller's defaults
+# (GATEWAY_NAME, GATEWAY_NAMESPACE) and what the default tenant looks up.
+#
+# kuadrant.io/gateway: "true"
+#   From the upstream sample; lets Connectivity Link attach AuthPolicy and
+#   TokenRateLimitPolicy here. Red Hat's guide does not list it.
+# opendatahub.io/managed: "false"
+#   Required by Red Hat's guide. Leaves the Gateway's AuthPolicies to the
+#   maas-controller instead of the ODH model controller overwriting them.
+# security.opendatahub.io/authorino-tls-bootstrap: "true"
+#   Required by Red Hat's guide. Makes the maas-controller create the
+#   EnvoyFilter that has the gateway speak TLS to Authorino. Authorino must be
+#   configured to match (homelab-2026-o8y.8) or authentication calls fail.
+#
+# NO hostname ON THE LISTENER. Upstream warns that hostname filters cause TLS and
+# SNI trouble behind the router; the Route in the overlay decides the hostname.
+#
+# allowedRoutes from All: MaaS creates an HTTPRoute per model in that model's
+# own namespace, so the set of namespaces is not known in advance.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: maas-default-gateway
+  namespace: openshift-ingress
+  labels:
+    kuadrant.io/gateway: "true"
+    app.kubernetes.io/name: maas-gateway
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    opendatahub.io/managed: "false"
+    security.opendatahub.io/authorino-tls-bootstrap: "true"
+spec:
+  gatewayClassName: openshift-default
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: maas-gateway-options
+  listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            # Written by the service-ca operator; see gateway-options.yaml.
+            name: maas-gw-service-tls

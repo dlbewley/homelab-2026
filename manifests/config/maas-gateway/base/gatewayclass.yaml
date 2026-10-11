@@ -1,0 +1,23 @@
+---
+# Turns on OpenShift's Gateway API implementation. Creating a GatewayClass with
+# exactly this controllerName is what makes the Ingress Operator deploy istiod
+# into openshift-ingress; any other controllerName is ignored, along with every
+# Gateway that uses the class.
+#
+# The name openshift-default is the one OpenShift's and Connectivity Link's
+# documentation both expect.
+#
+# SHARED, so Prune=false,Delete=false. This component creates it because the
+# MaaS Gateway is the first thing here to need it, but it is cluster-wide
+# infrastructure: Connectivity Link expects it, and any later Gateway will use
+# it. Deleting it removes istiod and takes every Gateway of this class down with
+# it. Removing Models-as-a-Service must not do that as a side effect.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: openshift-default
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  controllerName: openshift.io/gateway-controller/v1
