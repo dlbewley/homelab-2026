@@ -27,6 +27,15 @@ oc patch network.operator cluster --type merge --patch \
   '{"spec":{"defaultNetwork":{"ovnKubernetesConfig":{"gatewayConfig":{"ipForwarding":"Global"}}}}}'
 ```
 
+MultiNetworkPolicy was never patched by hand — it went straight into git — but
+the equivalent command, for a cluster not managed by this component, is:
+
+```bash
+# Enable MultiNetworkPolicy
+oc patch network.operator cluster --type merge --patch \
+  '{"spec":{"useMultiNetworkPolicy":true}}'
+```
+
 ## Why each setting
 
 | field | value | why |
