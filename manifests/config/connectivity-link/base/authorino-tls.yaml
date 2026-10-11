@@ -1,0 +1,105 @@
+---
+# TLS for Authorino, in the three places Red Hat OpenShift AI's
+# Models-as-a-Service needs it. Authorino answers "may this request proceed" for
+# the MaaS gateway; these make that conversation, and Authorino's own calls to
+# maas-api, encrypted and trusted.
+#
+#   gateway ──gRPC/TLS :50051──▶ Authorino ──HTTPS──▶ maas-api
+#            (1) and (2) below            (3) below
+#
+# ALL THREE OBJECTS ARE OWNED BY OPERATORS, NOT BY THIS REPO. The Kuadrant
+# operator creates the Authorino CR; the Authorino operator creates the Service
+# and the Deployment from it. Each manifest here is deliberately partial: it
+# declares only the fields below, and server-side apply merges them into the
+# object the operator made. That is why every one carries
+# Prune=false,Delete=false — removing this file must stop managing those fields,
+# never delete Authorino. It is the same technique as
+# manifests/config/network-operator.
+#
+# Until the operators have created these objects there is nothing to merge
+# into, so the Application fails and retries. Expected on first sync.
+#
+# See ../README.md for where this departs from Red Hat's guide, and why.
+
+# (1) Ask the service-ca operator for a serving certificate. It sees this
+# annotation and writes a certificate for the Service's cluster hostname into
+# the Secret authorino-server-cert, renewing it before expiry.
+apiVersion: v1
+kind: Service
+metadata:
+  name: authorino-authorino-authorization
+  namespace: kuadrant-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    service.beta.openshift.io/serving-cert-secret-name: authorino-server-cert
+---
+# (2) Serve that certificate on Authorino's authorization listener.
+#
+# The Kuadrant operator creates this CR with listener.tls.enabled: false and
+# owns that field (a plain server-side apply reports the conflict). ArgoCD
+# forces it and takes the field over. Red Hat's guide changes the same field
+# with `oc patch` and expects it to stay changed, so the Kuadrant operator is
+# not expected to re-assert it. If it ever does, this is where the two would
+# fight, and the symptom is the Application flapping between Synced and
+# OutOfSync while Authorino restarts.
+#
+# The gateway side of this is the annotation
+# security.opendatahub.io/authorino-tls-bootstrap on the MaaS Gateway
+# (manifests/config/maas-gateway), which makes the maas-controller create the
+# EnvoyFilter that has Envoy speak TLS here. One without the other breaks
+# authentication, in either order.
+apiVersion: operator.authorino.kuadrant.io/v1beta1
+kind: Authorino
+metadata:
+  name: authorino
+  namespace: kuadrant-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  listener:
+    tls:
+      enabled: true
+      certSecretRef:
+        name: authorino-server-cert
+---
+# (3) Have Authorino trust the service CA on its OUTBOUND calls. It validates
+# API keys by calling maas-api over HTTPS, and maas-api serves a service-ca
+# certificate.
+#
+# The Authorino CR has no field for environment variables, so this goes on the
+# Deployment the Authorino operator generates. That is also what Red Hat's guide
+# does (oc set env). The operator sets no `env` of its own, so there is nothing
+# to conflict with. Upstream MaaS reports that it DOES revert volumes added to
+# this Deployment, which is why the path below has to be one the pod already
+# has rather than a ConfigMap mounted for the purpose.
+#
+# THE PATH IS NOT THE ONE IN RED HAT'S GUIDE, ON PURPOSE. The RHOAI 3.5 guide
+# says /etc/ssl/certs/openshift-service-ca/service-ca-bundle.crt. That file does
+# not exist in this pod — checked on the hub 2026-10-11 — and nothing mounts it.
+# Go ignores an SSL_CERT_FILE it cannot read and falls back to the system trust
+# store, so the documented value fails SILENTLY: no error in the logs, and the
+# service CA is never trusted. The path here is the service CA bundle OpenShift
+# projects into every pod's service account volume, which upstream MaaS switched
+# to for the same reason. Verify it rather than trusting the absence of errors:
+#   oc exec -n kuadrant-system deploy/authorino -- \
+#     ls -l /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authorino
+  namespace: kuadrant-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "7"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  template:
+    spec:
+      containers:
+        - name: authorino
+          env:
+            - name: SSL_CERT_FILE
+              value: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt

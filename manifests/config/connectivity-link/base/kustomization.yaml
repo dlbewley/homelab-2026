@@ -3,3 +3,4 @@ kind: Kustomization
 # Cluster-agnostic: names no hostname, Gateway or certificate.
 resources:
   - kuadrant.yaml
+  - authorino-tls.yaml

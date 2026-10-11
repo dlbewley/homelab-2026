@@ -69,6 +69,82 @@ gateway, `homelab-2026-o8y.6`. Until that lands, the `Kuadrant` CR may report
 that no gateway provider is available. That is expected and not a fault in this
 component.
 
+## Authorino TLS
+
+Models-as-a-Service needs TLS on both sides of Authorino. `base/authorino-tls.yaml`
+sets it up, following
+[Red Hat's procedure](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/deploy-and-manage-models-as-a-service#configure-tls-for-maas_maas-deploy)
+with one correction.
+
+```
+gateway ──gRPC/TLS :50051──▶ Authorino ──HTTPS──▶ maas-api
+```
+
+| Step | Object | Field |
+|---|---|---|
+| 1 | `Service/authorino-authorino-authorization` | annotation `service.beta.openshift.io/serving-cert-secret-name: authorino-server-cert` |
+| 2 | `Authorino/authorino` | `spec.listener.tls.enabled: true`, `certSecretRef.name: authorino-server-cert` |
+| 3 | `Deployment/authorino` | env `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` |
+| 4 | `Gateway/maas-default-gateway` | annotation `security.opendatahub.io/authorino-tls-bootstrap: "true"` — in [maas-gateway](../maas-gateway) |
+
+### None of these objects belongs to this repo
+
+The Kuadrant operator creates the `Authorino` CR; the Authorino operator
+creates the Service and Deployment from it. The manifests here are deliberately
+**partial** — only the fields in the table — and server-side apply merges them
+into the operator's objects. Each carries `Prune=false,Delete=false`, so removing
+the file stops managing those fields and never deletes Authorino. The same
+technique as [network-operator](../network-operator).
+
+Two consequences:
+
+- **Step 2 takes a field from the Kuadrant operator.** It creates the CR with
+  `listener.tls.enabled: false` and owns that field; a plain server-side apply
+  reports the conflict, and ArgoCD forces it. Red Hat's guide makes the same
+  change with `oc patch` and expects it to hold. If the operator ever re-asserts
+  it, `hub-cfg-connectivity-link` will flap and Authorino will restart in a loop.
+- **Step 3 edits a generated Deployment** because the `Authorino` CR has no field
+  for environment variables. There is no better-supported mechanism: Red Hat's
+  guide does the same with `oc set env`, and the Connectivity Link 1.4
+  documentation says nothing about Authorino TLS at all.
+
+### The CA path is not the one in Red Hat's guide
+
+The RHOAI 3.5 guide sets both variables to
+`/etc/ssl/certs/openshift-service-ca/service-ca-bundle.crt`.
+
+**That file does not exist in the Authorino pod.** Checked on the hub
+2026-10-11: nothing mounts it, and the Authorino operator reverts volumes added
+to its Deployment. Worse, it fails silently — Go ignores an `SSL_CERT_FILE` it
+cannot read and falls back to the system trust store, so there is no error in
+the logs and the service CA is simply never trusted.
+
+This repo uses `/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt`,
+the service CA bundle OpenShift projects into every pod. Upstream MaaS
+[made the same switch](https://opendatahub-io.github.io/models-as-a-service/latest/configuration-and-management/tls-configuration/)
+for the same reason. Check the file, do not infer it from quiet logs:
+
+```bash
+oc exec -n kuadrant-system deploy/authorino -- ls -l /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+```
+
+### Verifying
+
+```bash
+oc get secret authorino-server-cert -n kuadrant-system
+```
+
+```bash
+oc get authorino authorino -n kuadrant-system -o jsonpath='{.spec.listener.tls}{"\n"}'
+```
+
+```bash
+oc set env deployment/authorino -n kuadrant-system --list
+```
+
+Run the last two again a few minutes later. Unchanged output is the evidence
+that neither operator is reverting the fields.
+
 ## Order of installation against RHOAI
 
 Applications here converge by retry, not in a fixed order, so RHOAI may come up
@@ -112,10 +188,6 @@ oc wait kuadrant/kuadrant -n kuadrant-system --for=condition=Ready=true --timeou
 ```
 
 ## Not configured
-
-**Authorino TLS.** MaaS needs TLS on Authorino's authorization listener and a CA
-bundle on its outbound calls. That is `homelab-2026-o8y.8`, kept separate
-because one of its steps edits a Deployment the Authorino operator owns.
 
 **Observability.** `spec.observability.enable` on the `Kuadrant` CR creates the
 PodMonitors MaaS usage metrics are built on. Not set. For the same reason
