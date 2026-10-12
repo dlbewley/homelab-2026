@@ -16,7 +16,7 @@ Tracked as `homelab-2026-o8y.9`, part of the epic `homelab-2026-o8y`.
 
 | Model | Served by | State |
 |---|---|---|
-| `claude-haiku-5-5` | Anthropic's API | The working one |
+| `claude-haiku-5-5` | Anthropic's API | **Working**, verified end to end on 2026-10-12 — without streaming |
 | `qwen2.5-7b-instruct` | LM Studio on a Mac on the LAN | **Registered, not reachable.** RHOAI 3.5.1 requires TLS on 443 with a public certificate; LM Studio offers plain HTTP on 1234. See [What RHOAI 3.5.1 requires of an external model](#what-rhoai-351-requires-of-an-external-model) |
 
 Do not trust the status fields for the second. Its `MaaSModelRef` reports
@@ -90,15 +90,52 @@ Clients can speak either dialect:
 | OpenAI Chat Completions | `/v1/chat/completions` | Translates the request to Anthropic's Messages format and the response back |
 | Anthropic Messages | `/v1/messages` | Passes it through |
 
-Things an OpenAI-style client needs to know about this model:
+### What was verified, and what does not work
+
+Tested through `https://maas.apps.hub.lab.bewley.net` on 2026-10-12 with a
+short-lived MaaS API key:
+
+| Request | Result |
+|---|---|
+| Catalog, `GET /v1/models` | Lists the model |
+| OpenAI format, `POST /v1/chat/completions` | `200`, an OpenAI-shaped `chat.completion` with `usage` |
+| Tool calling, OpenAI format | `200`, `finish_reason: tool_calls` with a well-formed `tool_calls` entry |
+| Anthropic format, `POST /v1/messages` | `200`, passed through unchanged |
+| OpenAI format without `max_tokens` | `200`; the translator supplies one |
+| With `temperature: 0.2` | `400`, "`temperature` is deprecated for this model" |
+| A revoked API key | `403` |
+| **OpenAI format, `stream: true`** | `200`, but **not a stream**: one complete `chat.completion` JSON body, delivered at the end, under `content-type: text/event-stream` |
+| **Anthropic format, `stream: true`** | **`400`** from Anthropic: `stream_options: Extra inputs are not permitted` |
+
+**Do not ask this model for a stream.** Neither dialect streams correctly on
+RHOAI 3.5.1:
+
+- In OpenAI format the response translator collects Anthropic's stream and
+  returns a single JSON object, still labelled as an event stream. A client that
+  parses server-sent events gets nothing it recognises.
+- In Anthropic format the gateway's `stream-usage-enforcer` plugin adds
+  OpenAI's `stream_options` to every streamed request so it can meter tokens,
+  and Anthropic's API rejects the field.
+
+Turning response translation back off does not help: an OpenAI-style client
+would then receive Anthropic's stream events untranslated. Tracked as
+`homelab-2026-o8y.13`.
+
+Other things an OpenAI-style client needs to know:
 
 - **Do not send `temperature`, `top_p` or `top_k`.** Haiku 5.5 rejects any
-  non-default sampling value with a `400`, and many OpenAI clients send
-  `temperature` unasked.
-- **Send `max_tokens`.** Anthropic's API requires it.
+  non-default sampling value, and many OpenAI clients send `temperature` unasked.
 - `frequency_penalty`, `presence_penalty`, `logprobs`, `n`, `response_format` and
   `seed` are dropped silently by the translator; Anthropic has no equivalent.
-- Tool calling is translated in both directions.
+
+### The name clients use is the resource name
+
+On RHOAI 3.5.1 the catalog lists a model by `metadata.name` of its
+`ExternalModel` / `MaaSModelRef`, and the gateway routes on that — not on
+`spec.modelName`. For Haiku all the names are the same, so it does not matter.
+For the LM Studio model they differ, and a request for the `modelName`
+(`qwen2.5-7b-instruct`) returned `404`; the catalog ID is `qwen2-5-7b-instruct`.
+A resource name cannot contain a dot, so pick model names accordingly.
 
 The model ID `claude-haiku-5-5` is Anthropic's own and is complete as written.
 A newer Haiku is a new ID, so moving to it is a change to
@@ -175,11 +212,12 @@ client ── MaaS API key ──▶ https://maas.apps.hub.lab.bewley.net/v1/cha
                            (LM Studio is on :1234, plain HTTP)
 ```
 
-Two model names are in play, deliberately:
+Three names are in play:
 
 | | Value | Who uses it |
 |---|---|---|
-| `modelName` | `qwen2.5-7b-instruct` | MaaS clients, in the `model` field of a request |
+| `metadata.name` | `qwen2-5-7b-instruct` | MaaS clients, in the `model` field of a request. The catalog ID |
+| `modelName` | `qwen2.5-7b-instruct` | Nobody, on this build; asking for it returned `404` |
 | `targetModel` | `qwen2.5-7b-instruct-1m` | LM Studio. Its exact model key, which has a `-1m` suffix |
 
 If LM Studio's key for the model changes — a different quantisation, a
@@ -285,6 +323,16 @@ curl -s https://maas.apps.hub.lab.bewley.net/v1/chat/completions \
   -H "Authorization: Bearer $MAAS_API_KEY" -H 'Content-Type: application/json' \
   -d '{"model":"claude-haiku-5-5","max_tokens":64,"messages":[{"role":"user","content":"Say hello"}]}' | jq
 ```
+
+To get a key from the command line, as a member of `cluster-admins`:
+
+```bash
+curl -s -X POST https://maas.apps.hub.lab.bewley.net/maas-api/v1/api-keys \
+  -H "Authorization: Bearer $(oc whoami -t)" -H 'Content-Type: application/json' \
+  -d '{"name":"my-key","expiresIn":"30d","subscription":"homelab-admins"}' | jq -r .key
+```
+
+The key is shown once. `DELETE /maas-api/v1/api-keys/<id>` revokes it.
 
 The reply should be OpenAI-shaped (`choices[0].message.content`). If it is
 Anthropic-shaped (`content[0].text`, `stop_reason`), response translation is not
