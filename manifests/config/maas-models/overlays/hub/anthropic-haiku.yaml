@@ -1,27 +1,38 @@
 ---
-# Registers Claude Haiku 5.5, served by Anthropic's API, with
+# Registers two Claude Haiku models, served by Anthropic's API, with
 # Models-as-a-Service.
 #
-# This is the kind of provider RHOAI 3.5.1 is built for: public TLS on port 443
-# with a certificate from a public CA. Nothing here needs the workarounds the
-# LM Studio model next door is waiting on.
+# Anthropic is the kind of provider RHOAI 3.5.1 is built for: public TLS on port
+# 443 with a certificate from a public CA.
 #
-# Three objects in the model namespace: where the provider is, the model name
-# clients use, and the catalog entry. Who may use it, and how much, is in
-# access-homelab-admins.yaml.
+# BOTH MODELS GO THROUGH ANTHROPIC'S OpenAI-COMPATIBLE ENDPOINT
+# (api.anthropic.com/v1/chat/completions), NOT its native Messages API. That is
+# a deliberate retreat from the first version of this file, which used the
+# native API and had the gateway translate. On RHOAI 3.5.1 that translation
+# cannot stream: a streamed reply came back as one JSON object mislabelled as
+# an event stream, and the native dialect was rejected outright when streamed.
+# The Gen AI playground streams every reply, so it could not use the model at
+# all. With an OpenAI-compatible provider the gateway translates nothing: the
+# provider already speaks the dialect the clients do, streaming included.
+#
+# What that costs: clients can no longer use Anthropic's native /v1/messages
+# dialect through MaaS, and Anthropic documents its OpenAI-compatible endpoint
+# as a compatibility layer rather than its full API (no prompt caching, some
+# OpenAI fields ignored). Fine for a lab; revisit when RHOAI's translator can
+# stream.
 
-# `provider: anthropic` selects the payload processor's Anthropic handling: the
-# credential goes out as `x-api-key`, not a Bearer token, and an
-# `anthropic-version` header is added.
+# `provider: openai` makes the gateway send the credential as
+# `Authorization: Bearer`, which this endpoint accepts, and pass request and
+# response bodies through untouched.
 apiVersion: inference.opendatahub.io/v1alpha1
 kind: ExternalProvider
 metadata:
-  name: anthropic
+  name: anthropic-openai
   namespace: maas-models
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  provider: anthropic
+  provider: openai
   endpoint: api.anthropic.com
   auth:
     type: apikey
@@ -29,29 +40,55 @@ spec:
       # From 1Password; see externalsecret-anthropic.yaml.
       name: anthropic-api-key
 ---
-# THE NAME CLIENTS USE IS metadata.name, not spec.modelName. On RHOAI 3.5.1 the
-# MaaS catalog lists a model by the name of its resource, and the gateway
-# routes on that. Here all three — resource name, modelName, targetModel — are
-# Anthropic's own ID for the model, so there is nothing to get wrong. Anthropic
-# IDs are complete as written and take no date suffix. A new Haiku is a new ID,
-# so moving to it is a change to this file, not something that happens on its
-# own.
+# Claude Haiku 4.5: THE ONE THE Gen AI PLAYGROUND CAN USE.
 #
-# apiFormat: messages and path /v1/messages mean the provider speaks Anthropic's
-# Messages API. Clients may use either dialect through MaaS:
-#   - OpenAI Chat Completions (/v1/chat/completions): the payload processor
-#     translates the request to Messages, and — only because
-#     payload-processing-plugins.yaml turns response translation on — the
-#     answer back again.
-#   - Anthropic Messages (/v1/messages): passed through.
+# The playground sends a `temperature` with every request and cannot be told
+# not to. Haiku 4.5 accepts one; Haiku 5.5 answers 400, "`temperature` is
+# deprecated for this model". That is the whole reason this older model is
+# here.
 #
-# WHAT CLIENTS MUST KNOW, all seen on the hub 2026-10-12:
-#   - Do not send temperature, top_p or top_k. Haiku 5.5 answers 400,
-#     "`temperature` is deprecated for this model". Many OpenAI clients send
-#     temperature by default.
-#   - Do not ask for a stream. See the README: neither dialect streams
-#     correctly through this RHOAI build.
-#   - max_tokens may be omitted in OpenAI format; the translator supplies one.
+# It costs ten times what Haiku 5.5 does per token; see the budget in
+# access-homelab-admins.yaml.
+#
+# THE NAME CLIENTS USE IS metadata.name. On RHOAI 3.5.1 the catalog lists a
+# model by its resource name and the gateway routes on that, not on
+# spec.modelName. Here all three names are Anthropic's own ID, which is
+# complete as written and takes no date suffix.
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalModel
+metadata:
+  name: claude-haiku-4-5
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  modelName: claude-haiku-4-5
+  externalProviderRefs:
+    - ref:
+        name: anthropic-openai
+      targetModel: claude-haiku-4-5
+      apiFormat: openai-chat
+      path: /v1/chat/completions
+      weight: 100
+---
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSModelRef
+metadata:
+  name: claude-haiku-4-5
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  modelRef:
+    kind: ExternalModel
+    name: claude-haiku-4-5
+---
+# Claude Haiku 5.5: the current Haiku, a tenth of the price, for clients that
+# can leave sampling settings alone.
+#
+# DO NOT SEND temperature, top_p OR top_k. It rejects any of them with a 400.
+# Many OpenAI clients send temperature by default, and the Gen AI playground
+# always does, so it cannot use this model.
 apiVersion: inference.opendatahub.io/v1alpha1
 kind: ExternalModel
 metadata:
@@ -63,10 +100,10 @@ spec:
   modelName: claude-haiku-5-5
   externalProviderRefs:
     - ref:
-        name: anthropic
+        name: anthropic-openai
       targetModel: claude-haiku-5-5
-      apiFormat: messages
-      path: /v1/messages
+      apiFormat: openai-chat
+      path: /v1/chat/completions
       weight: 100
 ---
 apiVersion: maas.opendatahub.io/v1alpha1
