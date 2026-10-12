@@ -1,0 +1,17 @@
+---
+# Where models registered with Models-as-a-Service are declared: for each one,
+# its provider credential, ExternalProvider, ExternalModel and MaaSModelRef. Red
+# Hat's guide requires all four to share a namespace and calls it the "model
+# namespace" (its example is `llm`).
+#
+# Nothing runs here. An external model is a set of routing objects; the model
+# itself is served somewhere else.
+#
+# Subscriptions and access policies do NOT go here. They live in RHOAI's tenant
+# namespace, models-as-a-service.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
