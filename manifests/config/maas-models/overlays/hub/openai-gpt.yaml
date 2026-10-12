@@ -1,0 +1,63 @@
+---
+# Registers an OpenAI model with Models-as-a-Service.
+#
+# The plainest case RHOAI's external-model support handles: the provider is
+# OpenAI itself, public TLS on port 443, speaking the dialect MaaS clients
+# speak. The gateway swaps the credential and passes everything else through,
+# streaming included.
+
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalProvider
+metadata:
+  name: openai
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  provider: openai
+  endpoint: api.openai.com
+  auth:
+    type: apikey
+    secretRef:
+      # From 1Password; see externalsecret-openai.yaml.
+      name: openai-api-key
+---
+# THE NAME CLIENTS USE IS metadata.name. On RHOAI 3.5.1 the catalog lists a
+# model by its resource name and the gateway routes on that, not on
+# spec.modelName. Here all three names are OpenAI's own model ID.
+#
+# NOT YET KNOWN ABOUT THIS MODEL, and worth checking the first time it is used:
+#   - whether it accepts `temperature`. Several OpenAI models reject any value
+#     but the default, the same way Claude Haiku 5.5 does, and the Gen AI
+#     playground always sends one.
+#   - whether it accepts `max_tokens`, or insists on `max_completion_tokens`.
+#   - what it costs. The budget in access-homelab-admins.yaml is in tokens, not
+#     dollars.
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalModel
+metadata:
+  name: gpt-6-luna
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  modelName: gpt-6-luna
+  externalProviderRefs:
+    - ref:
+        name: openai
+      targetModel: gpt-6-luna
+      apiFormat: openai-chat
+      path: /v1/chat/completions
+      weight: 100
+---
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSModelRef
+metadata:
+  name: gpt-6-luna
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  modelRef:
+    kind: ExternalModel
+    name: gpt-6-luna

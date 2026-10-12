@@ -10,6 +10,9 @@ resources:
   # Claude Haiku 4.5 and 5.5 on Anthropic's API.
   - externalsecret-anthropic.yaml
   - anthropic-haiku.yaml
+  # gpt-6-luna on OpenAI's API.
+  - externalsecret-openai.yaml
+  - openai-gpt.yaml
   # qwen2.5-7b-instruct on LM Studio. Registered, not yet reachable.
   - externalsecret-lmstudio.yaml
   - lmstudio-qwen.yaml

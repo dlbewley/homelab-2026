@@ -32,6 +32,8 @@ spec:
       namespace: maas-models
     - name: claude-haiku-5-5
       namespace: maas-models
+    - name: gpt-6-luna
+      namespace: maas-models
     - name: qwen2-5-7b-instruct
       namespace: maas-models
   subjects:
@@ -50,6 +52,11 @@ spec:
 #       100,000 tokens/hour is at most about 50 cents an hour.
 # Those are worst cases, every token billed as output. Raise them deliberately,
 # and check current prices at https://www.anthropic.com/pricing first.
+#
+# gpt-6-luna: THE LIMIT IS THE SPENDING CAP on the OpenAI key, and its price
+# was not known when this was written. 100,000 tokens/hour is a cautious token
+# budget, not a dollar figure. Look the price up at
+# https://openai.com/api/pricing and multiply before raising it.
 #
 # qwen2-5-7b-instruct: costs nothing per token. Its limit only stops a runaway
 # loop from pinning the laptop that serves it.
@@ -76,6 +83,11 @@ spec:
       namespace: maas-models
       tokenRateLimits:
         - limit: 200000
+          window: 1h
+    - name: gpt-6-luna
+      namespace: maas-models
+      tokenRateLimits:
+        - limit: 100000
           window: 1h
     - name: qwen2-5-7b-instruct
       namespace: maas-models
