@@ -6,3 +6,47 @@ resources:
   # The hostname is cluster-specific, and it is what every MaaS client is
   # configured with, so it is set here rather than defaulted in base.
   - route.yaml
+
+# TELLS MaaS ITS OWN PUBLIC NAME. The dashboard's MaaS pages and Gen AI studio
+# ask maas-api where the gateway is (GET /v1/tenants). maas-api answers from the
+# Gateway object alone: the hostname of the first ready HTTPS listener, else
+# status.addresses. With the gateway behind a Route there is no hostname on the
+# listener and the status address is the in-cluster Service name, which maas-api
+# refuses to hand out:
+#   "Unable to determine external hostname from Gateway status"
+# and the dashboard shows no MaaS models. It cannot see the Route.
+#
+# So this adds a SECOND listener, FIRST in the list, that carries the public
+# hostname. The original listener stays, with no hostname, as the catch-all.
+#
+# WHY NOT JUST PUT THE HOSTNAME ON THE ONE LISTENER. A listener with a hostname
+# only accepts TLS connections that name it (SNI). Whether the router names the
+# Route's host when it re-encrypts to the gateway is not something to bet the
+# gateway on; upstream warns that hostname filters cause exactly that trouble
+# behind a router. With both listeners, a connection that names the host
+# matches this one and any other matches the catch-all. Same certificate, same
+# routes (MaaS's HTTPRoutes name no listener, so they attach to both), same
+# policies. Traffic cannot get worse; maas-api gets its answer.
+#
+# Order matters: maas-api takes the first listener that qualifies.
+patches:
+  - target:
+      kind: Gateway
+      name: maas-default-gateway
+    patch: |-
+      - op: add
+        path: /spec/listeners/0
+        value:
+          name: https-external
+          hostname: maas.apps.hub.lab.bewley.net
+          port: 443
+          protocol: HTTPS
+          allowedRoutes:
+            namespaces:
+              from: All
+          tls:
+            mode: Terminate
+            certificateRefs:
+              - group: ""
+                kind: Secret
+                name: maas-gw-service-tls
