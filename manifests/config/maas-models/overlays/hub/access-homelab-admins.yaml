@@ -28,6 +28,8 @@ metadata:
     argocd.argoproj.io/sync-wave: "5"
 spec:
   modelRefs:
+    - name: claude-haiku-4-5
+      namespace: maas-models
     - name: claude-haiku-5-5
       namespace: maas-models
     - name: qwen2-5-7b-instruct
@@ -40,12 +42,14 @@ spec:
 # returns 429 until the window rolls over. Windows are s, m or h; days are not
 # accepted.
 #
-# claude-haiku-5-5: THE LIMIT IS THE SPENDING CAP on the Anthropic key. At
-# Anthropic's list price when this was written ($0.10 per million input tokens,
-# $0.50 per million output, for prompts up to 100K tokens), 200,000 tokens an
-# hour cannot exceed about ten cents an hour even if every token were output —
-# under $2.50 a day flat out. Raise it deliberately. Check current prices at
-# https://www.anthropic.com/pricing before you do.
+# THE Anthropic LIMITS ARE THE SPENDING CAP on the Anthropic key. At list price
+# when this was written, for prompts up to 100K tokens:
+#   claude-haiku-5-5  $0.10 per million input, $0.50 output
+#       200,000 tokens/hour is at most about 10 cents an hour.
+#   claude-haiku-4-5  $1.00 per million input, $5.00 output — ten times as much
+#       100,000 tokens/hour is at most about 50 cents an hour.
+# Those are worst cases, every token billed as output. Raise them deliberately,
+# and check current prices at https://www.anthropic.com/pricing first.
 #
 # qwen2-5-7b-instruct: costs nothing per token. Its limit only stops a runaway
 # loop from pinning the laptop that serves it.
@@ -63,6 +67,11 @@ spec:
     groups:
       - name: cluster-admins
   modelRefs:
+    - name: claude-haiku-4-5
+      namespace: maas-models
+      tokenRateLimits:
+        - limit: 100000
+          window: 1h
     - name: claude-haiku-5-5
       namespace: maas-models
       tokenRateLimits:

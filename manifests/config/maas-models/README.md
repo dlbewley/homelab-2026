@@ -16,7 +16,8 @@ Tracked as `homelab-2026-o8y.9`, part of the epic `homelab-2026-o8y`.
 
 | Model | Served by | State |
 |---|---|---|
-| `claude-haiku-5-5` | Anthropic's API | **Working**, verified end to end on 2026-10-12 — without streaming |
+| `claude-haiku-4-5` | Anthropic's API | **Working. The one to use in the Gen AI playground** |
+| `claude-haiku-5-5` | Anthropic's API | **Working**, for clients that send no `temperature`. A tenth of the price |
 | `qwen2.5-7b-instruct` | LM Studio on a Mac on the LAN | **Registered, not reachable.** RHOAI 3.5.1 requires TLS on 443 with a public certificate; LM Studio offers plain HTTP on 1234. See [What RHOAI 3.5.1 requires of an external model](#what-rhoai-351-requires-of-an-external-model) |
 
 Do not trust the status fields for the second. Its `MaaSModelRef` reports
@@ -29,10 +30,10 @@ Do not trust the status fields for the second. Its `MaaSModelRef` reports
 | `Namespace/maas-models` | — | The "model namespace": a model's credential, provider, model and catalog entry must share one |
 | `MaaSAuthPolicy/homelab-admins` | `models-as-a-service` | Who may use the models: the `cluster-admins` group |
 | `MaaSSubscription/homelab-admins` | `models-as-a-service` | The token budgets, one per model |
-| `ConfigMap/payload-processing-plugins` | `openshift-ingress` | Turns on response translation in the gateway, for Anthropic. RHOAI's object; one key patched |
 | `ExternalSecret/anthropic-api-key` | `maas-models` | Anthropic API key, from 1Password |
-| `ExternalProvider/anthropic` | `maas-models` | `api.anthropic.com` |
-| `ExternalModel`, `MaaSModelRef` `claude-haiku-5-5` | `maas-models` | The model and its catalog entry |
+| `ExternalProvider/anthropic-openai` | `maas-models` | `api.anthropic.com`, through its OpenAI-compatible endpoint |
+| `ExternalModel`, `MaaSModelRef` `claude-haiku-4-5` | `maas-models` | The model the playground can use |
+| `ExternalModel`, `MaaSModelRef` `claude-haiku-5-5` | `maas-models` | The current, cheaper Haiku |
 | `ExternalSecret/lmstudio-blackout-api-key` | `maas-models` | LM Studio's token, from 1Password |
 | `ExternalProvider/lmstudio-blackout` | `maas-models` | `blackout.home.bewley.net` |
 | `ExternalModel`, `MaaSModelRef` `qwen2-5-7b-instruct` | `maas-models` | The model and its catalog entry |
@@ -61,118 +62,114 @@ which applies.
 
 | Model | Budget | What the limit is for |
 |---|---|---|
-| `claude-haiku-5-5` | 200,000 tokens / hour | **The spending cap on the Anthropic key.** At list price when this was written ($0.10 per million input tokens, $0.50 output, for prompts up to 100K tokens) that cannot exceed about ten cents an hour, under $2.50 a day flat out. [Check current prices](https://www.anthropic.com/pricing) before raising it |
+| `claude-haiku-4-5` | 100,000 tokens / hour | **The spending cap on the Anthropic key.** $1 per million input tokens, $5 output: at most about 50 cents an hour |
+| `claude-haiku-5-5` | 200,000 tokens / hour | **Likewise.** $0.10 input, $0.50 output: at most about 10 cents an hour |
 | `qwen2.5-7b-instruct` | 200,000 tokens / hour | Stops a runaway loop from pinning the laptop. Costs nothing per token |
 
-Exceeding a budget returns `429` until the window rolls over.
+Prices are Anthropic's list prices when this was written, for prompts up to 100K
+tokens, and the figures are worst cases with every token billed as output.
+[Check current prices](https://www.anthropic.com/pricing) before raising a
+limit. Exceeding a budget returns `429` until the window rolls over.
 
-## Claude Haiku 5.5 on Anthropic
+## Claude Haiku on Anthropic
 
-The kind of provider RHOAI 3.5.1 is built for: public TLS on 443, public CA.
+Anthropic is the kind of provider RHOAI 3.5.1 is built for: public TLS on 443,
+public CA.
 
 ```
-client ── MaaS API key ──▶ https://maas.apps.hub.lab.bewley.net
+client ── MaaS API key ──▶ https://maas.apps.hub.lab.bewley.net/v1/chat/completions
                                  │  gateway: Authorino checks the key and the
                                  │  group; Limitador counts tokens
                                  ▼
                            payload processor: reads "model", picks the
                            provider, swaps the client's key for Anthropic's
-                           (as x-api-key), translates OpenAI ⇄ Messages
+                           (Authorization: Bearer). Bodies pass through.
                                  │  TLS, port 443
                                  ▼
-                           api.anthropic.com/v1/messages
+                           api.anthropic.com/v1/chat/completions
+                           (Anthropic's OpenAI-compatible endpoint)
 ```
 
-Clients can speak either dialect:
+### Why two models
 
-| Client sends | To | What MaaS does |
-|---|---|---|
-| OpenAI Chat Completions | `/v1/chat/completions` | Translates the request to Anthropic's Messages format and the response back |
-| Anthropic Messages | `/v1/messages` | Passes it through |
+| Model | `temperature` | Price per million tokens, in / out | Use it for |
+|---|---|---|---|
+| `claude-haiku-4-5` | accepted | $1.00 / $5.00 | **The Gen AI playground**, and any client that sends sampling settings |
+| `claude-haiku-5-5` | **rejected with `400`** | $0.10 / $0.50 | Everything else |
 
-### What was verified, and what does not work
+The playground sends a `temperature` with every request and cannot be told not
+to. Haiku 5.5 rejects it — "`temperature` is deprecated for this model" — along
+with `top_p` and `top_k`. Many OpenAI clients send `temperature` unasked too.
+Haiku 4.5 is here because it does not mind.
 
-Tested through `https://maas.apps.hub.lab.bewley.net` on 2026-10-12 with a
-short-lived MaaS API key:
+### Why the OpenAI-compatible endpoint and not Anthropic's own API
 
-| Request | Result |
+Both models are registered with `provider: openai` against
+`api.anthropic.com/v1/chat/completions`, Anthropic's
+[OpenAI-compatible endpoint](https://docs.anthropic.com/en/api/openai-sdk),
+rather than its native Messages API.
+
+The first version of this did use the native API (`provider: anthropic`,
+`apiFormat: messages`) and had RHOAI's payload processor translate between the
+two dialects. Non-streamed requests worked. **Streaming did not, in either
+dialect**, on RHOAI 3.5.1:
+
+| Request, through MaaS, native API registration | Result |
 |---|---|
-| Catalog, `GET /v1/models` | Lists the model |
-| OpenAI format, `POST /v1/chat/completions` | `200`, an OpenAI-shaped `chat.completion` with `usage` |
-| Tool calling, OpenAI format | `200`, `finish_reason: tool_calls` with a well-formed `tool_calls` entry |
-| Anthropic format, `POST /v1/messages` | `200`, passed through unchanged |
-| OpenAI format without `max_tokens` | `200`; the translator supplies one |
-| With `temperature: 0.2` | `400`, "`temperature` is deprecated for this model" |
-| A revoked API key | `403` |
-| **OpenAI format, `stream: true`** | `200`, but **not a stream**: one complete `chat.completion` JSON body, delivered at the end, under `content-type: text/event-stream` |
-| **Anthropic format, `stream: true`** | **`400`** from Anthropic: `stream_options: Extra inputs are not permitted` |
+| OpenAI format, `stream: true` | `200`, but one complete JSON object delivered at the end under `content-type: text/event-stream`. Not a stream |
+| Anthropic format, `stream: true` | `400` from Anthropic, `stream_options: Extra inputs are not permitted`. The gateway adds that OpenAI field to every streamed request to meter tokens |
 
-**Do not ask this model for a stream.** Neither dialect streams correctly on
-RHOAI 3.5.1:
+The Gen AI playground streams every reply, so it could not use the model at all.
+That arrangement also needed response translation switched on in a ConfigMap
+RHOAI owns, since it ships switched off.
 
-- In OpenAI format the response translator collects Anthropic's stream and
-  returns a single JSON object, still labelled as an event stream. A client that
-  parses server-sent events gets nothing it recognises.
-- In Anthropic format the gateway's `stream-usage-enforcer` plugin adds
-  OpenAI's `stream_options` to every streamed request so it can meter tokens,
-  and Anthropic's API rejects the field.
+With an OpenAI-compatible provider the gateway translates nothing. The provider
+already speaks the clients' dialect, streaming included, and RHOAI's payload
+processor runs with its defaults. Checked against Anthropic directly, with the
+request shape the gateway sends for the playground (streamed, `temperature`
+set, `stream_options.include_usage`): proper OpenAI event-stream chunks, usage
+in the final chunk, and tool calls in OpenAI form.
 
-Turning response translation back off does not help: an OpenAI-style client
-would then receive Anthropic's stream events untranslated. Tracked as
+What it costs:
+
+- **No native `/v1/messages` dialect through MaaS.** Clients use OpenAI Chat
+  Completions.
+- **It is a compatibility layer**, not Anthropic's full API: no prompt caching,
+  and some OpenAI fields are ignored.
+
+Revisit if a later RHOAI's translator can stream. Tracked as
 `homelab-2026-o8y.13`.
 
-Other things an OpenAI-style client needs to know:
+### If the payload processor's config has to be reset
 
-- **Do not send `temperature`, `top_p` or `top_k`.** Haiku 5.5 rejects any
-  non-default sampling value, and many OpenAI clients send `temperature` unasked.
-- `frequency_penalty`, `presence_penalty`, `logprobs`, `n`, `response_format` and
-  `seed` are dropped silently by the translator; Anthropic has no equivalent.
+The ConfigMap `payload-processing-plugins` in `openshift-ingress` is RHOAI's and
+is no longer touched by this repo. RHOAI stamps it
+`opendatahub.io/managed: "false"` and then leaves it alone, so an old edit stays
+until someone resets it. Removing the annotation makes RHOAI rewrite it to its
+defaults once:
+
+```bash
+oc annotate configmap payload-processing-plugins -n openshift-ingress opendatahub.io/managed-
+```
+
+```bash
+oc rollout restart deployment/payload-processing -n openshift-ingress
+```
+
+The default has `response: []` under `profiles[0].plugins`.
 
 ### The name clients use is the resource name
 
 On RHOAI 3.5.1 the catalog lists a model by `metadata.name` of its
 `ExternalModel` / `MaaSModelRef`, and the gateway routes on that — not on
-`spec.modelName`. For Haiku all the names are the same, so it does not matter.
-For the LM Studio model they differ, and a request for the `modelName`
-(`qwen2.5-7b-instruct`) returned `404`; the catalog ID is `qwen2-5-7b-instruct`.
-A resource name cannot contain a dot, so pick model names accordingly.
+`spec.modelName`. For the Haiku models all the names are the same, so it does
+not matter. For the LM Studio model they differ, and a request for the
+`modelName` (`qwen2.5-7b-instruct`) returned `404`; the catalog ID is
+`qwen2-5-7b-instruct`. A resource name cannot contain a dot, so pick model names
+accordingly.
 
-The model ID `claude-haiku-5-5` is Anthropic's own and is complete as written.
-A newer Haiku is a new ID, so moving to it is a change to
-`overlays/hub/anthropic-haiku.yaml`.
-
-- [Anthropic models](https://docs.anthropic.com/en/docs/about-claude/models), [Messages API](https://docs.anthropic.com/en/api/messages)
-- Upstream: [Anthropic as an external provider](https://github.com/opendatahub-io/ai-gateway-payload-processing/blob/main/docs/providers/anthropic.md)
-
-### Response translation has to be switched on
-
-RHOAI's payload processor translates OpenAI requests to Messages format out of
-the box, but translating the **answer back** is a separate plugin step that
-ships switched off, so that streamed responses from OpenAI-compatible models are
-not held up by a response processor. With it off, an OpenAI-style client asking
-for `claude-haiku-5-5` gets an Anthropic-shaped answer it cannot parse.
-
-`overlays/hub/payload-processing-plugins.yaml` turns it on. The only change from
-what RHOAI generates:
-
-```yaml
-        response: []            # RHOAI's default
-        response:               # here
-        - pluginRef: api-translation
-```
-
-The ConfigMap is RHOAI's. RHOAI creates it, stamps it
-`opendatahub.io/managed: "false"`, and from then on leaves edits alone, which
-makes this the intended way to change it. Server-side apply owns just that one
-key. Two consequences:
-
-- **An RHOAI upgrade will not update it either.** After upgrading, compare this
-  content with what a fresh install generates and carry the one edit across.
-- **The payload processor reads it only at start-up.** After changing it:
-
-```bash
-oc rollout restart deployment/payload-processing -n openshift-ingress
-```
+- [Anthropic models](https://docs.anthropic.com/en/docs/about-claude/models)
+- Upstream: [OpenAI-compatible providers](https://github.com/opendatahub-io/ai-gateway-payload-processing/blob/main/docs/providers/openai.md)
 
 ## qwen2.5-7b-instruct on LM Studio
 
@@ -321,7 +318,7 @@ the `homelab-admins` subscription or through `/v1/api-keys`:
 ```bash
 curl -s https://maas.apps.hub.lab.bewley.net/v1/chat/completions \
   -H "Authorization: Bearer $MAAS_API_KEY" -H 'Content-Type: application/json' \
-  -d '{"model":"claude-haiku-5-5","max_tokens":64,"messages":[{"role":"user","content":"Say hello"}]}' | jq
+  -d '{"model":"claude-haiku-4-5","max_tokens":64,"messages":[{"role":"user","content":"Say hello"}]}' | jq
 ```
 
 To get a key from the command line, as a member of `cluster-admins`:
@@ -334,9 +331,10 @@ curl -s -X POST https://maas.apps.hub.lab.bewley.net/maas-api/v1/api-keys \
 
 The key is shown once. `DELETE /maas-api/v1/api-keys/<id>` revokes it.
 
-The reply should be OpenAI-shaped (`choices[0].message.content`). If it is
-Anthropic-shaped (`content[0].text`, `stop_reason`), response translation is not
-in effect: check the ConfigMap and restart the payload processor.
+The reply should be OpenAI-shaped (`choices[0].message.content`). Add
+`"stream": true` and the body should be a series of `data:` lines ending in
+`data: [DONE]`. A single JSON object instead means the payload processor is
+still running with response translation on; reset its config as described above.
 
 If requests fail and the objects look right, check the controller is alive
 before anything else — see [rhoai](../rhoai/README.md#the-maas-controller-needs-more-memory-than-it-ships-with).
