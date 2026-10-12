@@ -12,18 +12,132 @@ keys — in front of models running somewhere else.
 
 Tracked as `homelab-2026-o8y.9`, part of the epic `homelab-2026-o8y`.
 
-## Status: registered, not yet reachable
+## Models
 
-`qwen2.5-7b-instruct` is in the MaaS catalog and every object below reports
-Ready, **but a request for it cannot succeed yet.** RHOAI 3.5.1 will only talk to
-an external model over TLS on port 443 with a publicly trusted certificate, and
-LM Studio offers plain HTTP on port 1234. The gap, and the ways to close it, are
-in [What RHOAI 3.5.1 requires of an external model](#what-rhoai-351-requires-of-an-external-model).
+| Model | Served by | State |
+|---|---|---|
+| `claude-haiku-5-5` | Anthropic's API | The working one |
+| `qwen2.5-7b-instruct` | LM Studio on a Mac on the LAN | **Registered, not reachable.** RHOAI 3.5.1 requires TLS on 443 with a public certificate; LM Studio offers plain HTTP on 1234. See [What RHOAI 3.5.1 requires of an external model](#what-rhoai-351-requires-of-an-external-model) |
 
-Do not trust the status fields here. `MaaSModelRef` reports `RuntimeReady: Backend
-is healthy` while the gateway is being refused on port 443.
+Do not trust the status fields for the second. Its `MaaSModelRef` reports
+`RuntimeReady: Backend is healthy` while the gateway is being refused on port 443.
 
-## The hub's first model: LM Studio on a Mac
+## Pieces
+
+| What | Namespace | Why |
+|---|---|---|
+| `Namespace/maas-models` | — | The "model namespace": a model's credential, provider, model and catalog entry must share one |
+| `MaaSAuthPolicy/homelab-admins` | `models-as-a-service` | Who may use the models: the `cluster-admins` group |
+| `MaaSSubscription/homelab-admins` | `models-as-a-service` | The token budgets, one per model |
+| `ConfigMap/payload-processing-plugins` | `openshift-ingress` | Turns on response translation in the gateway, for Anthropic. RHOAI's object; one key patched |
+| `ExternalSecret/anthropic-api-key` | `maas-models` | Anthropic API key, from 1Password |
+| `ExternalProvider/anthropic` | `maas-models` | `api.anthropic.com` |
+| `ExternalModel`, `MaaSModelRef` `claude-haiku-5-5` | `maas-models` | The model and its catalog entry |
+| `ExternalSecret/lmstudio-blackout-api-key` | `maas-models` | LM Studio's token, from 1Password |
+| `ExternalProvider/lmstudio-blackout` | `maas-models` | `blackout.home.bewley.net` |
+| `ExternalModel`, `MaaSModelRef` `qwen2-5-7b-instruct` | `maas-models` | The model and its catalog entry |
+
+From each provider and model MaaS generates the plumbing itself — an ExternalName
+Service, an Istio ServiceEntry and DestinationRule, and an HTTPRoute on the MaaS
+gateway. They are not in git and should not be.
+
+## Access and quota
+
+MaaS denies by default, so both of these are required. They live in
+`models-as-a-service`, RHOAI's tenant namespace, not beside the models.
+
+- **`MaaSAuthPolicy/homelab-admins`** grants every model here to the
+  `cluster-admins` group, the one populated group on the hub. To open them to
+  anyone who can log in, add `system:authenticated` — remembering that one of
+  them costs money per token. Keycloak's groups are not synced into OpenShift,
+  so they cannot be named yet.
+- **`MaaSSubscription/homelab-admins`** is what an API key is issued against,
+  and carries a token budget per model.
+
+One policy and one subscription for the group, listing every model, rather than
+a pair per model: one API key then works for all of the group's models, and two
+subscriptions for the same group at the same priority would leave MaaS guessing
+which applies.
+
+| Model | Budget | What the limit is for |
+|---|---|---|
+| `claude-haiku-5-5` | 200,000 tokens / hour | **The spending cap on the Anthropic key.** At list price when this was written ($0.10 per million input tokens, $0.50 output, for prompts up to 100K tokens) that cannot exceed about ten cents an hour, under $2.50 a day flat out. [Check current prices](https://www.anthropic.com/pricing) before raising it |
+| `qwen2.5-7b-instruct` | 200,000 tokens / hour | Stops a runaway loop from pinning the laptop. Costs nothing per token |
+
+Exceeding a budget returns `429` until the window rolls over.
+
+## Claude Haiku 5.5 on Anthropic
+
+The kind of provider RHOAI 3.5.1 is built for: public TLS on 443, public CA.
+
+```
+client ── MaaS API key ──▶ https://maas.apps.hub.lab.bewley.net
+                                 │  gateway: Authorino checks the key and the
+                                 │  group; Limitador counts tokens
+                                 ▼
+                           payload processor: reads "model", picks the
+                           provider, swaps the client's key for Anthropic's
+                           (as x-api-key), translates OpenAI ⇄ Messages
+                                 │  TLS, port 443
+                                 ▼
+                           api.anthropic.com/v1/messages
+```
+
+Clients can speak either dialect:
+
+| Client sends | To | What MaaS does |
+|---|---|---|
+| OpenAI Chat Completions | `/v1/chat/completions` | Translates the request to Anthropic's Messages format and the response back |
+| Anthropic Messages | `/v1/messages` | Passes it through |
+
+Things an OpenAI-style client needs to know about this model:
+
+- **Do not send `temperature`, `top_p` or `top_k`.** Haiku 5.5 rejects any
+  non-default sampling value with a `400`, and many OpenAI clients send
+  `temperature` unasked.
+- **Send `max_tokens`.** Anthropic's API requires it.
+- `frequency_penalty`, `presence_penalty`, `logprobs`, `n`, `response_format` and
+  `seed` are dropped silently by the translator; Anthropic has no equivalent.
+- Tool calling is translated in both directions.
+
+The model ID `claude-haiku-5-5` is Anthropic's own and is complete as written.
+A newer Haiku is a new ID, so moving to it is a change to
+`overlays/hub/anthropic-haiku.yaml`.
+
+- [Anthropic models](https://docs.anthropic.com/en/docs/about-claude/models), [Messages API](https://docs.anthropic.com/en/api/messages)
+- Upstream: [Anthropic as an external provider](https://github.com/opendatahub-io/ai-gateway-payload-processing/blob/main/docs/providers/anthropic.md)
+
+### Response translation has to be switched on
+
+RHOAI's payload processor translates OpenAI requests to Messages format out of
+the box, but translating the **answer back** is a separate plugin step that
+ships switched off, so that streamed responses from OpenAI-compatible models are
+not held up by a response processor. With it off, an OpenAI-style client asking
+for `claude-haiku-5-5` gets an Anthropic-shaped answer it cannot parse.
+
+`overlays/hub/payload-processing-plugins.yaml` turns it on. The only change from
+what RHOAI generates:
+
+```yaml
+        response: []            # RHOAI's default
+        response:               # here
+        - pluginRef: api-translation
+```
+
+The ConfigMap is RHOAI's. RHOAI creates it, stamps it
+`opendatahub.io/managed: "false"`, and from then on leaves edits alone, which
+makes this the intended way to change it. Server-side apply owns just that one
+key. Two consequences:
+
+- **An RHOAI upgrade will not update it either.** After upgrading, compare this
+  content with what a fresh install generates and carry the one edit across.
+- **The payload processor reads it only at start-up.** After changing it:
+
+```bash
+oc rollout restart deployment/payload-processing -n openshift-ingress
+```
+
+## qwen2.5-7b-instruct on LM Studio
 
 | | |
 |---|---|
@@ -45,23 +159,7 @@ Things to know about depending on a laptop:
 - **There is no TLS.** LM Studio serves plain HTTP only, and RHOAI 3.5.1
   requires TLS. See the last section.
 
-## Pieces
-
-| What | Namespace | Why |
-|---|---|---|
-| `Namespace/maas-models` | — | The "model namespace": a model's credential, provider, model and catalog entry must share one |
-| `ExternalSecret/lmstudio-blackout-api-key` | `maas-models` | LM Studio's token, from 1Password |
-| `ExternalProvider/lmstudio-blackout` | `maas-models` | Where LM Studio is and how to authenticate to it |
-| `ExternalModel/qwen2-5-7b-instruct` | `maas-models` | The model name clients use, mapped to that provider |
-| `MaaSModelRef/qwen2-5-7b-instruct` | `maas-models` | Puts the model in the MaaS catalog |
-| `MaaSAuthPolicy/qwen2-5-7b-instruct` | `models-as-a-service` | Who may use it: the `cluster-admins` group |
-| `MaaSSubscription/lmstudio-local` | `models-as-a-service` | The token budget: 200,000 an hour |
-
-From the first three MaaS generates the plumbing itself — an ExternalName
-Service, an Istio ServiceEntry and an HTTPRoute on the MaaS gateway. They are not
-in git and should not be.
-
-## How a request travels
+### How a request would travel
 
 ```
 client ── MaaS API key ──▶ https://maas.apps.hub.lab.bewley.net/v1/chat/completions
@@ -87,23 +185,7 @@ Two model names are in play, deliberately:
 If LM Studio's key for the model changes — a different quantisation, a
 re-download — `targetModel` has to follow. `lms ls` or `GET /v1/models` shows it.
 
-## Access and quota
-
-MaaS denies by default, so both of these are required:
-
-- **`MaaSAuthPolicy`** grants the model to the `cluster-admins` group. That is
-  the one populated group on the hub. To open it to anyone who can log in, add
-  `system:authenticated`. Keycloak's groups are not synced into OpenShift, so
-  they cannot be named yet.
-- **`MaaSSubscription`** `lmstudio-local` is what an API key is issued against.
-  Its 200,000 tokens an hour is a starting figure, not a measured one — roomy
-  for one person, small enough that a runaway agent loop is stopped by MaaS
-  with a `429` rather than by the laptop's fans.
-
-Both live in `models-as-a-service`, RHOAI's tenant namespace, not beside the
-model. That is where the controller looks for them.
-
-## The credential
+### The LM Studio credential
 
 MaaS clients never see LM Studio's token. They authenticate to MaaS with their
 own MaaS API key; the gateway's payload processor replaces it with the
@@ -126,46 +208,50 @@ The Secret's shape is dictated by MaaS
   without it the payload processor does not read the Secret
 - it must be in the same namespace as the `ExternalProvider` that names it
 
-### The item has to be in the `eso` vault
+## Credentials have to be in the `eso` vault
 
 The `1password-sdk` store reads exactly one vault, `eso`, and the cluster's
 1Password service account can see only that vault. That is deliberate: the
 cluster should be able to read the secrets meant for it and nothing else.
 
-The token was first saved at `op://development/LM Studio/tokens/blackout`, which
-the cluster cannot read. The ExternalSecret asks for the same
-item / section / field path, resolved in `eso`. Until an item named `LM Studio`
-with a `tokens` section and a `blackout` field exists there, it reports
-`SecretSyncedError`. The item was moved there on 2026-10-12 and the three-part
-key resolves.
+| Secret | 1Password reference | ExternalSecret key |
+|---|---|---|
+| Anthropic API key | `op://eso/Anthropic/rhoai` | `Anthropic/rhoai` |
+| LM Studio token | `op://eso/LM Studio/tokens/blackout` | `LM Studio/tokens/blackout` |
 
-Moving the item is one command:
+The key is the reference without the vault: `<item>/<field>`, or
+`<item>/<section>/<field>` when the field is in a section. Both forms resolve
+through this store.
+
+An item saved in any other vault is invisible to the cluster and its
+ExternalSecret reports `SecretSyncedError`. The LM Studio token started out in
+`development` and had to be moved:
 
 ```bash
 op item move "LM Studio" --current-vault development --destination-vault eso
 ```
 
-Granting the service account the `development` vault instead would work but is
-the wrong trade: that vault holds the service account's own token, among other
-things.
+Granting the service account another vault instead would work but is the wrong
+trade: `development` holds the service account's own token, among other things.
 
-### Verifying
-
-```bash
-oc get externalsecret lmstudio-blackout-api-key -n maas-models
-```
-
-`READY` should be `True`, `STATUS` `SecretSynced`. Then check the shape without
-printing the value:
+### Verifying the credentials
 
 ```bash
-oc get secret lmstudio-blackout-api-key -n maas-models -o json | jq '{keys: (.data | keys), label: .metadata.labels["inference.llm-d.ai/ipp-managed"]}'
+oc get externalsecret -n maas-models
 ```
 
-If the token is regenerated in LM Studio, update the 1Password item. External
-Secrets picks it up within the hour.
+Both should be `READY` `True`, `STATUS` `SecretSynced`. Then check the shape
+without printing a value:
 
-## Verifying the model
+```bash
+oc get secret anthropic-api-key lmstudio-blackout-api-key -n maas-models -o json | jq '.items[] | {name: .metadata.name, keys: (.data | keys), label: .metadata.labels["inference.llm-d.ai/ipp-managed"]}'
+```
+
+To rotate either credential, change it at its source (the Anthropic Console, or
+LM Studio's server settings), update the 1Password item, and External Secrets
+picks it up within the hour.
+
+## Verifying the models
 
 ```bash
 oc get externalprovider,externalmodel,maasmodelref -n maas-models
@@ -192,7 +278,17 @@ curl -s -H "Authorization: Bearer $(oc whoami -t)" https://maas.apps.hub.lab.bew
 ```
 
 An end-to-end completion needs a MaaS API key, created in the dashboard under
-the `lmstudio-local` subscription or through `/v1/api-keys`.
+the `homelab-admins` subscription or through `/v1/api-keys`:
+
+```bash
+curl -s https://maas.apps.hub.lab.bewley.net/v1/chat/completions \
+  -H "Authorization: Bearer $MAAS_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"model":"claude-haiku-5-5","max_tokens":64,"messages":[{"role":"user","content":"Say hello"}]}' | jq
+```
+
+The reply should be OpenAI-shaped (`choices[0].message.content`). If it is
+Anthropic-shaped (`content[0].text`, `stop_reason`), response translation is not
+in effect: check the ConfigMap and restart the payload processor.
 
 If requests fail and the objects look right, check the controller is alive
 before anything else — see [rhoai](../rhoai/README.md#the-maas-controller-needs-more-memory-than-it-ships-with).
