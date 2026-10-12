@@ -92,8 +92,7 @@ spec:
             path: manifests/config/maas-database/base
           # The models Models-as-a-Service fronts on this cluster. Overlay
           # only: which models, and where they are served, is cluster-specific.
-          # Today just the provider credential for LM Studio on a Mac on the
-          # LAN; the model registration itself follows.
+          # Today one external model: LM Studio on a Mac on the LAN.
           - name: maas-models
             namespace: maas-models
             path: manifests/config/maas-models/overlays/hub

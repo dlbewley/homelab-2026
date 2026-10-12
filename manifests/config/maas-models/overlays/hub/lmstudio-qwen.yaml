@@ -1,0 +1,89 @@
+---
+# Registers one model with Models-as-a-Service: qwen2.5-7b-instruct, served by
+# LM Studio on the Mac "blackout".
+#
+# Three objects in the model namespace, in the order MaaS needs them:
+#
+#   ExternalProvider   where the provider is and how to authenticate to it
+#   ExternalModel      a model name clients ask for, mapped onto that provider
+#   MaaSModelRef       puts the model in the MaaS catalog
+#
+# From these the controller generates the plumbing itself: an ExternalName
+# Service, an Istio ServiceEntry and an HTTPRoute on the MaaS gateway. Who may
+# use the model, and how much, is in lmstudio-qwen-access.yaml.
+
+# WHERE AND HOW. `provider: openai` because LM Studio speaks the OpenAI API: the
+# payload processor passes the request body through unchanged and sends the
+# credential as `Authorization: Bearer`.
+#
+# endpoint is a hostname only: no scheme, port or path. The port and the lack of
+# TLS are annotations on the ExternalModel below, which is where MaaS reads
+# them from.
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalProvider
+metadata:
+  name: lmstudio-blackout
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  provider: openai
+  endpoint: blackout.home.bewley.net
+  auth:
+    type: apikey
+    secretRef:
+      # From 1Password; see externalsecret-lmstudio.yaml.
+      name: lmstudio-blackout-api-key
+---
+# THE MODEL.
+#
+# Two names, deliberately different:
+#   modelName    what a MaaS client puts in the "model" field of a request
+#   targetModel  what LM Studio calls it — its exact model key, which carries a
+#                "-1m" suffix. Check with `lms ls` or GET /v1/models.
+# Clients get the plain name; the suffix is LM Studio's business.
+#
+# maas.opendatahub.io/port: "1234"   LM Studio's server port. The default is 443.
+# maas.opendatahub.io/tls: "false"   LM Studio serves plain HTTP only. With this
+#   set, no DestinationRule is created and the gateway connects without TLS.
+#
+#   THAT SENDS THE PROVIDER TOKEN IN CLEAR TEXT from the cluster nodes, through
+#   the router, to the Mac. Red Hat's guide permits it and says to do so only on
+#   a trusted, isolated network. It is accepted here for a token that only
+#   unlocks a local model server on a home LAN; see ../../README.md for how to
+#   close it.
+#
+# weight 100 with a single provider. Several providerRefs would split traffic.
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalModel
+metadata:
+  name: qwen2-5-7b-instruct
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    maas.opendatahub.io/tls: "false"
+    maas.opendatahub.io/port: "1234"
+spec:
+  modelName: qwen2.5-7b-instruct
+  externalProviderRefs:
+    - ref:
+        name: lmstudio-blackout
+      targetModel: qwen2.5-7b-instruct-1m
+      apiFormat: openai-chat
+      path: /v1/chat/completions
+      weight: 100
+---
+# THE CATALOG ENTRY. Without this the model exists but MaaS does not list it and
+# nothing can subscribe to it. No tenantRef, so it belongs to the default
+# tenant — the only one external models are supported for in this release.
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSModelRef
+metadata:
+  name: qwen2-5-7b-instruct
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  modelRef:
+    kind: ExternalModel
+    name: qwen2-5-7b-instruct
