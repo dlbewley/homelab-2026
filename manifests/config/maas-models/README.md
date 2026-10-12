@@ -12,12 +12,23 @@ keys — in front of models running somewhere else.
 
 Tracked as `homelab-2026-o8y.9`, part of the epic `homelab-2026-o8y`.
 
+## Status: registered, not yet reachable
+
+`qwen2.5-7b-instruct` is in the MaaS catalog and every object below reports
+Ready, **but a request for it cannot succeed yet.** RHOAI 3.5.1 will only talk to
+an external model over TLS on port 443 with a publicly trusted certificate, and
+LM Studio offers plain HTTP on port 1234. The gap, and the ways to close it, are
+in [What RHOAI 3.5.1 requires of an external model](#what-rhoai-351-requires-of-an-external-model).
+
+Do not trust the status fields here. `MaaSModelRef` reports `RuntimeReady: Backend
+is healthy` while the gateway is being refused on port 443.
+
 ## The hub's first model: LM Studio on a Mac
 
 | | |
 |---|---|
 | Served by | [LM Studio](https://lmstudio.ai/) on the Mac `blackout` |
-| Address | `blackout.home.bewley.net:1234`, plain HTTP |
+| Address | `blackout.home.bewley.net:1234`, plain HTTP — which is the problem |
 | API | OpenAI-compatible (`/v1/chat/completions`, `/v1/models`) |
 | Auth | Bearer token, required — the server answers `401` without one |
 
@@ -31,7 +42,8 @@ Things to know about depending on a laptop:
 - **The address is a DHCP lease** on a different subnet from the cluster
   (192.168.3.0/24 against 192.168.4.0/24). It works because the router forwards
   between them and DNS follows the lease.
-- **There is no TLS.** LM Studio serves plain HTTP only. See the last section.
+- **There is no TLS.** LM Studio serves plain HTTP only, and RHOAI 3.5.1
+  requires TLS. See the last section.
 
 ## Pieces
 
@@ -40,7 +52,7 @@ Things to know about depending on a laptop:
 | `Namespace/maas-models` | — | The "model namespace": a model's credential, provider, model and catalog entry must share one |
 | `ExternalSecret/lmstudio-blackout-api-key` | `maas-models` | LM Studio's token, from 1Password |
 | `ExternalProvider/lmstudio-blackout` | `maas-models` | Where LM Studio is and how to authenticate to it |
-| `ExternalModel/qwen2-5-7b-instruct` | `maas-models` | The model name clients use, mapped to that provider; carries the port and no-TLS annotations |
+| `ExternalModel/qwen2-5-7b-instruct` | `maas-models` | The model name clients use, mapped to that provider |
 | `MaaSModelRef/qwen2-5-7b-instruct` | `maas-models` | Puts the model in the MaaS catalog |
 | `MaaSAuthPolicy/qwen2-5-7b-instruct` | `models-as-a-service` | Who may use it: the `cluster-admins` group |
 | `MaaSSubscription/lmstudio-local` | `models-as-a-service` | The token budget: 200,000 an hour |
@@ -59,9 +71,10 @@ client ── MaaS API key ──▶ https://maas.apps.hub.lab.bewley.net/v1/cha
                            payload processor: reads "model" from the body,
                            picks the provider, swaps the client's key for
                            LM Studio's token, rewrites the model name
-                                 │  plain HTTP
+                                 │  TLS, port 443, always
                                  ▼
-                           blackout.home.bewley.net:1234   (LM Studio)
+                           blackout.home.bewley.net:443   ✗ nothing listens here
+                           (LM Studio is on :1234, plain HTTP)
 ```
 
 Two model names are in play, deliberately:
@@ -169,7 +182,8 @@ generated:
 oc get service,httproute,serviceentry,destinationrule -n maas-models
 ```
 
-There should be **no** DestinationRule: with TLS off, none is created.
+On 3.5.1 the Service and ServiceEntry are always port 443 and the
+DestinationRule always `tls.mode: SIMPLE`, whatever the model is annotated with.
 
 Then, as a member of `cluster-admins`, list the catalog with an OpenShift token:
 
@@ -198,16 +212,56 @@ needs to be loaded in advance if just-in-time loading is enabled there.
 - [Running headless](https://lmstudio.ai/docs/developer/core/headless)
 - [OpenAI compatibility](https://lmstudio.ai/docs/developer/openai-compat) and [tool use](https://lmstudio.ai/docs/developer/openai-compat/tools)
 
-## The token crosses the LAN in clear text
+## What RHOAI 3.5.1 requires of an external model
 
-LM Studio does not serve TLS, so the model is registered with
-`maas.opendatahub.io/tls: "false"` and `maas.opendatahub.io/port: "1234"`.
-Red Hat's guide allows that and is plain about the cost: the provider
-credential is then sent unencrypted, and it says to do so only on a trusted,
-isolated network.
+Found on the hub on 2026-10-12, by reading what the controllers generated and
+what Envoy was actually configured with.
 
-Here that means LM Studio's token travels unencrypted from the cluster nodes,
-through the router, to the Mac. On a home LAN that is a reasonable trade for a
-token that only unlocks a local model server — but it is a decision, not an
-accident. The way to close it is a small TLS-terminating proxy on the Mac with a
-`homelab-ca` certificate, at the price of another moving part on a laptop.
+| Requirement | Evidence |
+|---|---|
+| **Port 443.** No other port can be used | The generated Service, ServiceEntry and HTTPRoute backend are all 443 |
+| **TLS.** Plain HTTP cannot be used | The ServiceEntry protocol is `HTTPS` and the DestinationRule is `tls.mode: SIMPLE` |
+| **A certificate from a public CA** | Envoy validates the provider against its system trust store: 146 public CAs, `homelab-ca` not among them |
+| **No way to supply your own CA** | `ExternalProvider` has four fields: `provider`, `endpoint`, `auth`, `config` |
+
+### The documented escape hatch does not work
+
+Red Hat's guide
+([1.21.4](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/deploy-and-manage-models-as-a-service#configuring-maas-external-models_maas-deploy))
+documents two annotations on the `ExternalModel` for precisely this case, with an
+internal vLLM on port 8000 as its example:
+
+```yaml
+maas.opendatahub.io/tls: "false"
+maas.opendatahub.io/port: "8000"
+```
+
+On 3.5.1 they are ignored. Three things were checked:
+
+- **Applied as documented**, on the `inference.opendatahub.io` ExternalModel: the
+  generated objects stayed at 443 and TLS.
+- **The controller that builds those objects has no such setting.** The payload
+  processor's binary contains neither those annotation keys nor the newer
+  `inference.opendatahub.io/tls` and `/port` that upstream now documents on the
+  `ExternalProvider`.
+- **The older API does not help.** The `maas-controller` does recognise the
+  annotations on the legacy `maas.opendatahub.io/v1alpha1` ExternalModel, but it
+  immediately migrates such an object to the new API and the annotations are
+  dropped on the way. Tried with a throwaway object, since deleted.
+
+Where this is heading does not help either: upstream's current code does honour
+port and TLS annotations, but
+[refuses plain HTTP with API-key authentication](https://github.com/opendatahub-io/ai-gateway-payload-processing/blob/main/docs/external-provider-model.md),
+because the key would travel in clear text. LM Studio with its token switched on
+will need TLS on any version.
+
+### Ways to close the gap
+
+| Option | What it takes | Trade |
+|---|---|---|
+| **TLS on the Mac, public certificate** | A reverse proxy on `blackout` listening on 443 and forwarding to `127.0.0.1:1234`, with a Let's Encrypt certificate for its hostname (DNS-01, since the Mac is not reachable from the internet) | Nothing changes in the cluster, the token is encrypted, and LM Studio can go back to listening on localhost only. Needs software and certificate renewal on a laptop, and DNS API access for the challenge |
+| **TLS inside the cluster** | A small proxy Deployment here that terminates TLS and forwards to `blackout:1234`, with `endpoint` pointed at its Service; plus the gateway made to trust the CA that signs it | Everything stays in git and nothing is installed on the Mac. Two unproven pieces: pointing an ExternalProvider at an in-cluster Service, and adding a CA to the gateway's trust store. The token still crosses the LAN in clear text on the last hop |
+| **A different first model** | Register a provider that already has public TLS on 443 | Proves MaaS end to end today; says nothing about LM Studio |
+
+None is chosen yet. Tracked in `homelab-2026-o8y.9`.
+
