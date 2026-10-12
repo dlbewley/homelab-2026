@@ -94,11 +94,60 @@ oc delete gatewayclass openshift-default
 RHOAI creates a second class of its own, `data-science-gateway-class`, for the
 dashboard. Same controller, unrelated to this one.
 
+## MaaS has to be told its own public name
+
+Behind a Route, the Gateway object says nothing about where it is reachable:
+its listener has no hostname and its status address is the in-cluster Service.
+That is fine for traffic and wrong for one consumer. The dashboard's MaaS pages
+and Gen AI studio ask `maas-api` for the gateway's external URL
+(`GET /v1/tenants`), and `maas-api` works it out from the Gateway alone — the
+hostname of the first ready HTTPS listener, else `status.addresses`. It will not
+hand out a `.svc.cluster.local` name, and it cannot see the Route. On the hub
+this was failing every 30 seconds:
+
+```
+maas-api GET /v1/tenants returned 500:
+  Unable to determine external hostname from Gateway status
+```
+
+with the result that no MaaS models appeared in Gen AI studio. Requests to the
+gateway itself were unaffected, which is why the earlier end-to-end checks
+passed.
+
+The hub overlay fixes it by adding a second listener, `https-external`, first in
+the list and carrying `maas.apps.hub.lab.bewley.net`. The original listener
+stays, with no hostname, as the catch-all:
+
+| Listener | Hostname | Purpose |
+|---|---|---|
+| `https-external` | `maas.apps.hub.lab.bewley.net` | Gives `maas-api` the public name. Also serves connections that name that host |
+| `https` | none | Serves everything else, as before |
+
+Putting the hostname on the single listener instead would be simpler and is
+what `maas-api`'s own log message recommends, but a listener with a hostname
+accepts only TLS connections that name it, and upstream warns that this causes
+SNI trouble behind a router. With both, traffic cannot get worse. Both use the
+same certificate, and MaaS's HTTPRoutes name no listener, so they attach to
+both.
+
+Check it:
+
+```bash
+oc logs -n redhat-ods-applications deploy/maas-ui --since=2m | grep -c 'MaaS API discovery failed'
+```
+
+should print `0`, and both listeners should be programmed with routes attached:
+
+```bash
+oc get gateway maas-default-gateway -n openshift-ingress -o jsonpath='{range .status.listeners[*]}{.name}{"\t"}{.attachedRoutes}{"\n"}{end}'
+```
+
 ## Three details that are easy to get wrong
 
-**No hostname on the listener.** Upstream warns that hostname filters on the
-Gateway cause TLS and SNI trouble behind the router. The Route decides the
-hostname; the listener accepts whatever arrives.
+**The catch-all listener has no hostname.** Upstream warns that hostname
+filters on the Gateway cause TLS and SNI trouble behind the router. The Route
+decides the hostname; the `https` listener accepts whatever arrives. The
+`https-external` listener beside it exists for a different reason, above.
 
 **No `destinationCACertificate` on the Route.** Upstream's sample pastes the
 service CA bundle in. That is a cluster-specific value that rotates. It is not
