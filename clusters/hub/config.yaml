@@ -92,7 +92,8 @@ spec:
             path: manifests/config/maas-database/base
           # The models Models-as-a-Service fronts on this cluster. Overlay
           # only: which models, and where they are served, is cluster-specific.
-          # Today one external model: LM Studio on a Mac on the LAN.
+          # Claude Haiku on Anthropic's API, and LM Studio on a Mac on the LAN
+          # (registered, not yet reachable).
           - name: maas-models
             namespace: maas-models
             path: manifests/config/maas-models/overlays/hub

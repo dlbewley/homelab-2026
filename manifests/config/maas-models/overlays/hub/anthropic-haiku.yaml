@@ -1,0 +1,77 @@
+---
+# Registers Claude Haiku 5.5, served by Anthropic's API, with
+# Models-as-a-Service.
+#
+# This is the kind of provider RHOAI 3.5.1 is built for: public TLS on port 443
+# with a certificate from a public CA. Nothing here needs the workarounds the
+# LM Studio model next door is waiting on.
+#
+# Three objects in the model namespace: where the provider is, the model name
+# clients use, and the catalog entry. Who may use it, and how much, is in
+# access-homelab-admins.yaml.
+
+# `provider: anthropic` selects the payload processor's Anthropic handling: the
+# credential goes out as `x-api-key`, not a Bearer token, and an
+# `anthropic-version` header is added.
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalProvider
+metadata:
+  name: anthropic
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  provider: anthropic
+  endpoint: api.anthropic.com
+  auth:
+    type: apikey
+    secretRef:
+      # From 1Password; see externalsecret-anthropic.yaml.
+      name: anthropic-api-key
+---
+# modelName and targetModel are the same here: Anthropic's own ID for the model,
+# which is complete as written and takes no date suffix. A new Haiku is a new
+# ID, so moving to it is a change to this file, not something that happens on
+# its own.
+#
+# apiFormat: messages and path /v1/messages mean the provider speaks Anthropic's
+# Messages API. Clients may use either dialect through MaaS:
+#   - OpenAI Chat Completions (/v1/chat/completions): the payload processor
+#     translates the request to Messages, and — only because
+#     payload-processing-plugins.yaml turns response translation on — the
+#     answer back again.
+#   - Anthropic Messages (/v1/messages): passed through.
+#
+# TWO THINGS OpenAI-STYLE CLIENTS MUST KNOW about this model:
+#   - Do not send temperature, top_p or top_k. Haiku 5.5 rejects any
+#     non-default sampling value with a 400, and many OpenAI clients send
+#     temperature by default.
+#   - Send max_tokens. Anthropic's API requires it.
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalModel
+metadata:
+  name: claude-haiku-5-5
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  modelName: claude-haiku-5-5
+  externalProviderRefs:
+    - ref:
+        name: anthropic
+      targetModel: claude-haiku-5-5
+      apiFormat: messages
+      path: /v1/messages
+      weight: 100
+---
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSModelRef
+metadata:
+  name: claude-haiku-5-5
+  namespace: maas-models
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  modelRef:
+    kind: ExternalModel
+    name: claude-haiku-5-5

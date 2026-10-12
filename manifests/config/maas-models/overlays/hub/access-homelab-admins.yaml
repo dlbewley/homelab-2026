@@ -1,0 +1,75 @@
+---
+# Who may use the models registered here, and how much.
+#
+# MaaS denies by default: a model nobody has been granted returns 403, and a
+# user with no subscription gets zero tokens. Both objects below are needed.
+#
+# They live in models-as-a-service, RHOAI's tenant namespace, not next to the
+# models. That is where the controller looks for them.
+#
+# ONE policy and ONE subscription for the group, listing every model, rather
+# than a pair per model. An API key is issued against a subscription, so this
+# gives one key that works for all of the group's models; and two subscriptions
+# for the same group at the same priority leave MaaS guessing which applies.
+
+# ACCESS. Any one matching subject is enough.
+#
+# cluster-admins is the conservative start: it is the one populated group on the
+# hub (bootstrap/rbac.yaml). To open the models to everyone who can log in, add
+# `- name: system:authenticated` — and remember that one of them now costs
+# money per token. Keycloak's groups are not synced into OpenShift, so they
+# cannot be named here yet.
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSAuthPolicy
+metadata:
+  name: homelab-admins
+  namespace: models-as-a-service
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  modelRefs:
+    - name: claude-haiku-5-5
+      namespace: maas-models
+    - name: qwen2-5-7b-instruct
+      namespace: maas-models
+  subjects:
+    groups:
+      - name: cluster-admins
+---
+# QUOTA. Each model has its own budget within the subscription. Exceeding one
+# returns 429 until the window rolls over. Windows are s, m or h; days are not
+# accepted.
+#
+# claude-haiku-5-5: THE LIMIT IS THE SPENDING CAP on the Anthropic key. At
+# Anthropic's list price when this was written ($0.10 per million input tokens,
+# $0.50 per million output, for prompts up to 100K tokens), 200,000 tokens an
+# hour cannot exceed about ten cents an hour even if every token were output —
+# under $2.50 a day flat out. Raise it deliberately. Check current prices at
+# https://www.anthropic.com/pricing before you do.
+#
+# qwen2-5-7b-instruct: costs nothing per token. Its limit only stops a runaway
+# loop from pinning the laptop that serves it.
+#
+# The owner groups decide who may create API keys on this subscription.
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSSubscription
+metadata:
+  name: homelab-admins
+  namespace: models-as-a-service
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  owner:
+    groups:
+      - name: cluster-admins
+  modelRefs:
+    - name: claude-haiku-5-5
+      namespace: maas-models
+      tokenRateLimits:
+        - limit: 200000
+          window: 1h
+    - name: qwen2-5-7b-instruct
+      namespace: maas-models
+      tokenRateLimits:
+        - limit: 200000
+          window: 1h
