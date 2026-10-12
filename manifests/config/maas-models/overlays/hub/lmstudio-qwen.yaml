@@ -12,13 +12,18 @@
 # Service, an Istio ServiceEntry and an HTTPRoute on the MaaS gateway. Who may
 # use the model, and how much, is in lmstudio-qwen-access.yaml.
 
+# NOT WORKING YET, AND NOT BECAUSE OF ANYTHING IN THIS FILE. All three objects
+# reconcile to Ready, but RHOAI 3.5.1 connects to every external provider the
+# same way — TLS, port 443, certificate checked against public CAs — and LM
+# Studio serves plain HTTP on 1234. See ../../README.md, "What RHOAI 3.5.1
+# requires of an external model". The registration is left in place because
+# whatever puts TLS in front of LM Studio changes at most `endpoint` below.
+
 # WHERE AND HOW. `provider: openai` because LM Studio speaks the OpenAI API: the
 # payload processor passes the request body through unchanged and sends the
 # credential as `Authorization: Bearer`.
 #
-# endpoint is a hostname only: no scheme, port or path. The port and the lack of
-# TLS are annotations on the ExternalModel below, which is where MaaS reads
-# them from.
+# endpoint is a hostname only: no scheme, port or path. The port is always 443.
 apiVersion: inference.opendatahub.io/v1alpha1
 kind: ExternalProvider
 metadata:
@@ -43,15 +48,11 @@ spec:
 #                "-1m" suffix. Check with `lms ls` or GET /v1/models.
 # Clients get the plain name; the suffix is LM Studio's business.
 #
-# maas.opendatahub.io/port: "1234"   LM Studio's server port. The default is 443.
-# maas.opendatahub.io/tls: "false"   LM Studio serves plain HTTP only. With this
-#   set, no DestinationRule is created and the gateway connects without TLS.
-#
-#   THAT SENDS THE PROVIDER TOKEN IN CLEAR TEXT from the cluster nodes, through
-#   the router, to the Mac. Red Hat's guide permits it and says to do so only on
-#   a trusted, isolated network. It is accepted here for a token that only
-#   unlocks a local model server on a home LAN; see ../../README.md for how to
-#   close it.
+# NO PORT OR TLS ANNOTATIONS. Red Hat's guide documents maas.opendatahub.io/port
+# and maas.opendatahub.io/tls on this object for exactly this case. On 3.5.1 they
+# are ignored: the generated Service, ServiceEntry and DestinationRule are 443
+# and TLS regardless. They were tried here and removed so the manifest does not
+# claim something that is not happening.
 #
 # weight 100 with a single provider. Several providerRefs would split traffic.
 apiVersion: inference.opendatahub.io/v1alpha1
@@ -61,8 +62,6 @@ metadata:
   namespace: maas-models
   annotations:
     argocd.argoproj.io/sync-wave: "3"
-    maas.opendatahub.io/tls: "false"
-    maas.opendatahub.io/port: "1234"
 spec:
   modelName: qwen2.5-7b-instruct
   externalProviderRefs:
