@@ -10,9 +10,16 @@
 # The CRD arrives with the operator's CSV, so this Application fails and retries
 # until manifests/olm/connectivity-link has installed.
 #
-# NOT SET HERE: spec.observability.enable. It makes Kuadrant create the
-# PodMonitors that MaaS usage metrics are built on. Left for the change that
-# turns MaaS observability on, so it is a deliberate step rather than a default.
+# spec.observability.enable makes the operator create PodMonitors for Limitador,
+# Authorino and its own controllers (kuadrant-limitador-monitor and friends, in
+# kuadrant-system). It is step one of Red Hat's procedure for the
+# Models-as-a-Service usage dashboard; the rest is in manifests/config/rhoai.
+# kuadrant-system deliberately has no openshift.io/cluster-monitoring label, so
+# it is user workload monitoring that picks these up, and the metrics are
+# queryable in the console under Observe > Metrics.
+#
+# The operator had already written an empty `observability: {}` into the spec;
+# this adds one field beneath it.
 apiVersion: kuadrant.io/v1beta1
 kind: Kuadrant
 metadata:
@@ -20,3 +27,6 @@ metadata:
   namespace: kuadrant-system
   annotations:
     argocd.argoproj.io/sync-wave: "0"
+spec:
+  observability:
+    enable: true

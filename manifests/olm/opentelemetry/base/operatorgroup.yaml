@@ -1,0 +1,17 @@
+---
+# `spec: {}` requests AllNamespaces, the only mode this operator supports:
+#   oc get packagemanifest opentelemetry-product -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> AllNamespaces
+#
+# It has to be: the OpenTelemetryCollector it reconciles for RHOAI lives in
+# redhat-ods-monitoring, not here.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: opentelemetry-operatorgroup
+  namespace: openshift-opentelemetry-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec: {}
