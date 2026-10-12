@@ -18,6 +18,7 @@ Tracked as `homelab-2026-o8y.9`, part of the epic `homelab-2026-o8y`.
 |---|---|---|
 | `claude-haiku-4-5` | Anthropic's API | **Working. The one to use in the Gen AI playground** |
 | `claude-haiku-5-5` | Anthropic's API | **Working**, for clients that send no `temperature`. A tenth of the price |
+| `gpt-6-luna` | OpenAI's API | Registered. Not yet exercised; see [gpt-6-luna on OpenAI](#gpt-6-luna-on-openai) |
 | `qwen2.5-7b-instruct` | LM Studio on a Mac on the LAN | **Registered, not reachable.** RHOAI 3.5.1 requires TLS on 443 with a public certificate; LM Studio offers plain HTTP on 1234. See [What RHOAI 3.5.1 requires of an external model](#what-rhoai-351-requires-of-an-external-model) |
 
 Do not trust the status fields for the second. Its `MaaSModelRef` reports
@@ -34,6 +35,9 @@ Do not trust the status fields for the second. Its `MaaSModelRef` reports
 | `ExternalProvider/anthropic-openai` | `maas-models` | `api.anthropic.com`, through its OpenAI-compatible endpoint |
 | `ExternalModel`, `MaaSModelRef` `claude-haiku-4-5` | `maas-models` | The model the playground can use |
 | `ExternalModel`, `MaaSModelRef` `claude-haiku-5-5` | `maas-models` | The current, cheaper Haiku |
+| `ExternalSecret/openai-api-key` | `maas-models` | OpenAI API key, from 1Password |
+| `ExternalProvider/openai` | `maas-models` | `api.openai.com` |
+| `ExternalModel`, `MaaSModelRef` `gpt-6-luna` | `maas-models` | The model and its catalog entry |
 | `ExternalSecret/lmstudio-blackout-api-key` | `maas-models` | LM Studio's token, from 1Password |
 | `ExternalProvider/lmstudio-blackout` | `maas-models` | `blackout.home.bewley.net` |
 | `ExternalModel`, `MaaSModelRef` `qwen2-5-7b-instruct` | `maas-models` | The model and its catalog entry |
@@ -64,6 +68,7 @@ which applies.
 |---|---|---|
 | `claude-haiku-4-5` | 100,000 tokens / hour | **The spending cap on the Anthropic key.** $1 per million input tokens, $5 output: at most about 50 cents an hour |
 | `claude-haiku-5-5` | 200,000 tokens / hour | **Likewise.** $0.10 input, $0.50 output: at most about 10 cents an hour |
+| `gpt-6-luna` | 100,000 tokens / hour | **The spending cap on the OpenAI key.** Its price was not known when this was written, so this is a cautious token budget, not a dollar figure. [Look it up](https://openai.com/api/pricing) before raising it |
 | `qwen2.5-7b-instruct` | 200,000 tokens / hour | Stops a runaway loop from pinning the laptop. Costs nothing per token |
 
 Prices are Anthropic's list prices when this was written, for prompts up to 100K
@@ -171,6 +176,29 @@ accordingly.
 - [Anthropic models](https://docs.anthropic.com/en/docs/about-claude/models)
 - Upstream: [OpenAI-compatible providers](https://github.com/opendatahub-io/ai-gateway-payload-processing/blob/main/docs/providers/openai.md)
 
+## gpt-6-luna on OpenAI
+
+The plainest case: the provider is OpenAI itself, on public TLS, speaking the
+dialect MaaS clients speak. The gateway swaps the credential and passes the rest
+through.
+
+Registered at the user's request with the model ID as given. Three things were
+not known when it was added and are worth checking on first use:
+
+- **Whether it accepts `temperature`.** Several OpenAI models reject any value
+  but the default, as Claude Haiku 5.5 does, and the Gen AI playground always
+  sends one.
+- **Whether it accepts `max_tokens`** or insists on `max_completion_tokens`.
+- **What it costs.**
+
+To check the model ID and the first two against OpenAI directly, with the key
+from the cluster and without printing it:
+
+```bash
+K=$(oc get secret openai-api-key -n maas-models -o jsonpath='{.data.api-key}' | base64 -d)
+curl -s -o /dev/null -w '%{http_code}\n' https://api.openai.com/v1/models/gpt-6-luna -H "Authorization: Bearer $K"
+```
+
 ## qwen2.5-7b-instruct on LM Studio
 
 | | |
@@ -252,6 +280,7 @@ cluster should be able to read the secrets meant for it and nothing else.
 | Secret | 1Password reference | ExternalSecret key |
 |---|---|---|
 | Anthropic API key | `op://eso/Anthropic/rhoai` | `Anthropic/rhoai` |
+| OpenAI API key | `op://eso/OpenAI/token` | `OpenAI/token` |
 | LM Studio token | `op://eso/LM Studio/tokens/blackout` | `LM Studio/tokens/blackout` |
 
 The key is the reference without the vault: `<item>/<field>`, or
@@ -279,7 +308,7 @@ Both should be `READY` `True`, `STATUS` `SecretSynced`. Then check the shape
 without printing a value:
 
 ```bash
-oc get secret anthropic-api-key lmstudio-blackout-api-key -n maas-models -o json | jq '.items[] | {name: .metadata.name, keys: (.data | keys), label: .metadata.labels["inference.llm-d.ai/ipp-managed"]}'
+oc get secret anthropic-api-key openai-api-key lmstudio-blackout-api-key -n maas-models -o json | jq '.items[] | {name: .metadata.name, keys: (.data | keys), label: .metadata.labels["inference.llm-d.ai/ipp-managed"]}'
 ```
 
 To rotate either credential, change it at its source (the Anthropic Console, or
