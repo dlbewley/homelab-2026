@@ -26,6 +26,13 @@
 # and stays that way:
 #   oc get crd opentelemetrycollectors.opentelemetry.io --show-managed-fields \
 #     -o jsonpath='{range .metadata.managedFields[*]}{.manager}{"\n"}{end}'
+#
+# That is what happened on the hub on 2026-10-12. OLM (managers `catalog` and
+# `olm`) rewrote both CRDs, their ownerReference to MultiClusterObservability
+# went away, the conversion webhook now points at this operator's service, and
+# ACM has not written to them since. MultiClusterObservability stayed Ready.
+# The old `mco-operator` entry is still listed among the managers; it is the
+# timestamp that shows it is not active.
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:

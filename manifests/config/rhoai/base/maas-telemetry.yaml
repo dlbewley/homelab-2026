@@ -21,6 +21,7 @@
 # `enabled: true` IS STATED EVEN THOUGH THE CRD SAYS IT DEFAULTS TO TRUE. On the
 # hub the object had an empty spec and no TelemetryPolicy existed, so the
 # default evidently does not apply when `telemetry` is absent altogether.
+# Setting it was enough: the policy appeared as soon as this synced.
 #
 # THE CONTROLLER CREATES THIS OBJECT (AITenant/models-as-a-service bootstraps
 # it, with an empty spec). This manifest is partial, merged in by server-side

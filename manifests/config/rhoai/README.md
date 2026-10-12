@@ -158,7 +158,11 @@ is requests allowed, `limited_calls` is requests refused by a token limit. Only
   key.
 - Tokens are counted from the usage block in the model's response. A streamed
   response that carries none increments the request count and not the token
-  count.
+  count. Streamed requests to `claude-haiku-4-5` do carry one and are counted
+  (checked 2026-10-12: a plain and a streamed request of 21 tokens each gave 42).
+- The `model` label is whatever the provider's response calls the model, not
+  the MaaS name: `claude-haiku-4-5` is reported as `claude-haiku-4-5-20251001`.
+  The MaaS name is in `limitador_namespace` (`maas-models/claude-haiku-4-5`).
 - Counters live in Limitador's memory. Prometheus keeps the history, but only
   from the moment it started scraping.
 
@@ -185,7 +189,31 @@ oc exec -n kuadrant-system deploy/limitador-limitador -- \
 oc get dscinitialization default-dsci -o json | jq -r \
   '.status.conditions[] | select(.type|test("MonitoringStack|Perses|Collector")) | "\(.type) \(.status)"'
 oc get pods -n redhat-ods-monitoring
+
+# RHOAI's Prometheus has them. It serves TLS, and the counters are named
+# *_total here: they arrive through the OpenTelemetry collector, which adds it.
+oc exec -n redhat-ods-monitoring prometheus-data-science-monitoringstack-0 -c prometheus -- \
+  curl -sk https://localhost:9090/api/v1/query \
+  --data-urlencode 'query=sum by (user, model, subscription) (authorized_hits_total{user!=""})'
 ```
+
+The same counters are also in cluster monitoring, under their plain names
+(`authorized_hits`), through Kuadrant's PodMonitor and user workload monitoring.
+So Observe → Metrics in the OpenShift console can answer the question too.
+
+**Verified on the hub, 2026-10-12.** All of the above, end to end, with
+`dlbewley` appearing as the `user`. Three things seen along the way:
+
+- For a few minutes after the collectors start, both replicas report the same
+  Limitador series and every total reads double. It clears once the target
+  allocator has settled and the stale copy expires. Expect it again briefly
+  whenever a collector pod is replaced.
+- The stack is bigger than `metrics` suggests: two Alertmanagers and two
+  collectors are deployed even with `alerting` unset and one Prometheus
+  replica. About 600Mi of memory in total, idle.
+- `Monitoring/default-monitoring` kept reporting `DeploymentsAvailable=False`
+  ("2/3 deployments ready") after every pod was running. `Ready` is True and the
+  DSCI is healthy; it looks stale rather than wrong, and is not chased here.
 
 **Not enabled: the log-based pipeline.** 3.5 adds a second route to the same
 report, `usageLogging: true` on the MaaS `Config`, built on gateway access logs
