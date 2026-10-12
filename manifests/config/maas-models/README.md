@@ -33,17 +33,62 @@ Things to know about depending on a laptop:
   between them and DNS follows the lease.
 - **There is no TLS.** LM Studio serves plain HTTP only. See the last section.
 
-## What is here so far
+## Pieces
 
-| What | Where | Why |
+| What | Namespace | Why |
 |---|---|---|
-| `Namespace/maas-models` | `overlays/hub/namespace.yaml` | The "model namespace": a model's credential, provider, model and catalog entry must share one |
-| `ExternalSecret/lmstudio-blackout-api-key` | `overlays/hub/externalsecret-lmstudio.yaml` | LM Studio's token, from 1Password |
+| `Namespace/maas-models` | — | The "model namespace": a model's credential, provider, model and catalog entry must share one |
+| `ExternalSecret/lmstudio-blackout-api-key` | `maas-models` | LM Studio's token, from 1Password |
+| `ExternalProvider/lmstudio-blackout` | `maas-models` | Where LM Studio is and how to authenticate to it |
+| `ExternalModel/qwen2-5-7b-instruct` | `maas-models` | The model name clients use, mapped to that provider; carries the port and no-TLS annotations |
+| `MaaSModelRef/qwen2-5-7b-instruct` | `maas-models` | Puts the model in the MaaS catalog |
+| `MaaSAuthPolicy/qwen2-5-7b-instruct` | `models-as-a-service` | Who may use it: the `cluster-admins` group |
+| `MaaSSubscription/lmstudio-local` | `models-as-a-service` | The token budget: 200,000 an hour |
 
-The model registration itself — `ExternalProvider`, `ExternalModel`,
-`MaaSModelRef`, and a subscription and access policy in the
-`models-as-a-service` namespace — is the next change. The credential comes
-first because nothing else can be tested without it.
+From the first three MaaS generates the plumbing itself — an ExternalName
+Service, an Istio ServiceEntry and an HTTPRoute on the MaaS gateway. They are not
+in git and should not be.
+
+## How a request travels
+
+```
+client ── MaaS API key ──▶ https://maas.apps.hub.lab.bewley.net/v1/chat/completions
+                                 │  gateway: Authorino checks the key and the
+                                 │  group; Limitador counts tokens
+                                 ▼
+                           payload processor: reads "model" from the body,
+                           picks the provider, swaps the client's key for
+                           LM Studio's token, rewrites the model name
+                                 │  plain HTTP
+                                 ▼
+                           blackout.home.bewley.net:1234   (LM Studio)
+```
+
+Two model names are in play, deliberately:
+
+| | Value | Who uses it |
+|---|---|---|
+| `modelName` | `qwen2.5-7b-instruct` | MaaS clients, in the `model` field of a request |
+| `targetModel` | `qwen2.5-7b-instruct-1m` | LM Studio. Its exact model key, which has a `-1m` suffix |
+
+If LM Studio's key for the model changes — a different quantisation, a
+re-download — `targetModel` has to follow. `lms ls` or `GET /v1/models` shows it.
+
+## Access and quota
+
+MaaS denies by default, so both of these are required:
+
+- **`MaaSAuthPolicy`** grants the model to the `cluster-admins` group. That is
+  the one populated group on the hub. To open it to anyone who can log in, add
+  `system:authenticated`. Keycloak's groups are not synced into OpenShift, so
+  they cannot be named yet.
+- **`MaaSSubscription`** `lmstudio-local` is what an API key is issued against.
+  Its 200,000 tokens an hour is a starting figure, not a measured one — roomy
+  for one person, small enough that a runaway agent loop is stopped by MaaS
+  with a `429` rather than by the laptop's fans.
+
+Both live in `models-as-a-service`, RHOAI's tenant namespace, not beside the
+model. That is where the controller looks for them.
 
 ## The credential
 
@@ -78,7 +123,8 @@ The token was first saved at `op://development/LM Studio/tokens/blackout`, which
 the cluster cannot read. The ExternalSecret asks for the same
 item / section / field path, resolved in `eso`. Until an item named `LM Studio`
 with a `tokens` section and a `blackout` field exists there, it reports
-`SecretSyncedError`. Nothing else is affected.
+`SecretSyncedError`. The item was moved there on 2026-10-12 and the three-part
+key resolves.
 
 Moving the item is one command:
 
@@ -106,6 +152,37 @@ oc get secret lmstudio-blackout-api-key -n maas-models -o json | jq '{keys: (.da
 If the token is regenerated in LM Studio, update the 1Password item. External
 Secrets picks it up within the hour.
 
+## Verifying the model
+
+```bash
+oc get externalprovider,externalmodel,maasmodelref -n maas-models
+```
+
+```bash
+oc get maasauthpolicy,maassubscription -n models-as-a-service
+```
+
+All should report Ready. If the model is `Failed`, look at what the controller
+generated:
+
+```bash
+oc get service,httproute,serviceentry,destinationrule -n maas-models
+```
+
+There should be **no** DestinationRule: with TLS off, none is created.
+
+Then, as a member of `cluster-admins`, list the catalog with an OpenShift token:
+
+```bash
+curl -s -H "Authorization: Bearer $(oc whoami -t)" https://maas.apps.hub.lab.bewley.net/v1/models | jq '.data[].id'
+```
+
+An end-to-end completion needs a MaaS API key, created in the dashboard under
+the `lmstudio-local` subscription or through `/v1/api-keys`.
+
+If requests fail and the objects look right, check the controller is alive
+before anything else — see [rhoai](../rhoai/README.md#the-maas-controller-needs-more-memory-than-it-ships-with).
+
 ## Running LM Studio so the cluster can use it
 
 ```bash
@@ -121,9 +198,9 @@ needs to be loaded in advance if just-in-time loading is enabled there.
 - [Running headless](https://lmstudio.ai/docs/developer/core/headless)
 - [OpenAI compatibility](https://lmstudio.ai/docs/developer/openai-compat) and [tool use](https://lmstudio.ai/docs/developer/openai-compat/tools)
 
-## The token will cross the LAN in clear text
+## The token crosses the LAN in clear text
 
-LM Studio does not serve TLS, so the model will be registered with
+LM Studio does not serve TLS, so the model is registered with
 `maas.opendatahub.io/tls: "false"` and `maas.opendatahub.io/port: "1234"`.
 Red Hat's guide allows that and is plain about the cost: the provider
 credential is then sent unencrypted, and it says to do so only on a trusted,
