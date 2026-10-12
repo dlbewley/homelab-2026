@@ -21,11 +21,23 @@
 # `kuadrant-operator`; Red Hat's docs call it `rhcl-operator`, and that is the
 # name anything looking for the product by Subscription will expect.
 #
-# NO spec.config.env. Upstream MaaS suggests AUTH_SERVICE_TIMEOUT and
-# RATELIMIT_*_SERVICE_FAILURE_MODE here; no Red Hat document mentions either, so
-# they stay unset until there is a measured reason. ISTIO_GATEWAY_CONTROLLER_NAMES
-# is only for the OpenShift Service Mesh variant — on 4.19+ the Ingress Operator
-# is the gateway controller and needs no setting.
+# AUTH_SERVICE_TIMEOUT: how long the gateway's policy filter waits for Authorino
+# to answer "may this request proceed". The default is 200ms, and a request
+# that waits longer is failed with a 500. That is too tight for
+# Models-as-a-Service, where an auth decision can involve Authorino calling
+# maas-api, which may have to open a database connection first. Seen on the hub
+# 2026-10-12: after the models were re-registered, 5 of about 40 requests made
+# with an API key returned 500, and maas-api logged its database lookups being
+# cancelled by a caller that had stopped waiting. Upstream MaaS documents this
+# exact symptom and this fix. 2s is its recommended value. The operator binary
+# in rhcl-operator.v1.4.3 does read the variable, though no Red Hat document
+# mentions it.
+#
+# STILL UNSET, deliberately: RATELIMIT_CHECK_SERVICE_FAILURE_MODE and
+# RATELIMIT_REPORT_SERVICE_FAILURE_MODE, which decide whether token limits
+# fail open or closed when Limitador is unreachable. Nothing measured calls
+# for them yet. ISTIO_GATEWAY_CONTROLLER_NAMES is only for the OpenShift
+# Service Mesh variant; on 4.19+ the Ingress Operator is the gateway controller.
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -39,3 +51,7 @@ spec:
   source: redhat-operators
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic
+  config:
+    env:
+      - name: AUTH_SERVICE_TIMEOUT
+        value: "2s"
