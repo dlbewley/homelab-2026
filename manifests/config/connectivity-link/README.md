@@ -193,11 +193,41 @@ PodMonitors MaaS usage metrics are built on. Not set. For the same reason
 `kuadrant-system` does not carry `openshift.io/cluster-monitoring`, unlike most
 operator namespaces here — see the comment in the Namespace manifest.
 
-**Subscription tuning.** Upstream MaaS suggests `AUTH_SERVICE_TIMEOUT` and
+**Rate-limit failure mode.** Upstream MaaS suggests
 `RATELIMIT_CHECK_SERVICE_FAILURE_MODE` / `RATELIMIT_REPORT_SERVICE_FAILURE_MODE`
-on the operator Subscription. No Red Hat document mentions them. The second pair
-decides whether rate limits fail open or closed when Limitador is down, which is
-worth a deliberate decision before anything depends on those limits.
+on the operator Subscription. They decide whether token limits fail open or
+closed when Limitador is down, which is worth a deliberate decision before
+anything depends on those limits. No Red Hat document mentions them.
+
+## The auth timeout is raised to 2 seconds
+
+The Subscription sets `AUTH_SERVICE_TIMEOUT: "2s"`. The default is 200ms: how
+long the gateway's policy filter waits for Authorino before failing the request
+with a `500`.
+
+For Models-as-a-Service that is too tight. Validating an API key means Authorino
+calling `maas-api`, which may first have to open a database connection. On the
+hub, in the minutes after the models were re-registered, 5 of about 40 requests
+made with an API key returned `500`, while `maas-api` logged its database
+lookups being cancelled by a caller that had given up:
+
+```
+API key validation failed: database lookup failed: ... operation was canceled
+```
+
+Authorino itself was healthy throughout: 134 of 146 checks finished in under
+100ms and all in under 250ms. The failures were the slow first calls. Sixty
+requests a few minutes later all succeeded.
+
+[Upstream MaaS](https://opendatahub-io.github.io/models-as-a-service/latest/install/platform-setup/)
+documents this symptom and this fix. No Red Hat document mentions the variable,
+but the operator in `rhcl-operator.v1.4.3` does read it.
+
+To see whether it is still happening:
+
+```bash
+oc logs -n redhat-ai-gateway-infra deploy/maas-api --since=1h | grep -c 'API key validation failed'
+```
 
 ## References
 
