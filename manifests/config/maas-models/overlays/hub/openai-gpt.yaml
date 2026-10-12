@@ -26,13 +26,14 @@ spec:
 # model by its resource name and the gateway routes on that, not on
 # spec.modelName. Here all three names are OpenAI's own model ID.
 #
-# NOT YET KNOWN ABOUT THIS MODEL, and worth checking the first time it is used:
-#   - whether it accepts `temperature`. Several OpenAI models reject any value
-#     but the default, the same way Claude Haiku 5.5 does, and the Gen AI
-#     playground always sends one.
-#   - whether it accepts `max_tokens`, or insists on `max_completion_tokens`.
-#   - what it costs. The budget in access-homelab-admins.yaml is in tokens, not
-#     dollars.
+# WHAT CLIENTS MUST KNOW, all checked against OpenAI on 2026-10-12:
+#   - Do not send `temperature`. Only the default is accepted: "Unsupported
+#     value: 'temperature' does not support 0.2 with this model". The Gen AI
+#     playground always sends one, so it cannot use this model.
+#   - Send `max_completion_tokens`, not `max_tokens`, which it rejects.
+#   - Streaming works.
+# Its price was not looked up. The budget in access-homelab-admins.yaml is in
+# tokens, not dollars.
 apiVersion: inference.opendatahub.io/v1alpha1
 kind: ExternalModel
 metadata:

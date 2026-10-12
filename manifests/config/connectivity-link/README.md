@@ -223,7 +223,19 @@ requests a few minutes later all succeeded.
 documents this symptom and this fix. No Red Hat document mentions the variable,
 but the operator in `rhcl-operator.v1.4.3` does read it.
 
-To see whether it is still happening:
+After the change the gateway's generated filter configuration shows the auth
+service at `timeout: 2s`, `failureMode: deny`.
+
+**The rate-limit services are a different story, and worth knowing about.**
+The same configuration shows them at `timeout: 100ms`, `failureMode: allow`:
+if Limitador is slow or down, requests are let through uncounted. The token
+budgets on the paid models are therefore a soft cap, not a hard one. Setting
+`RATELIMIT_CHECK_SERVICE_FAILURE_MODE` and `RATELIMIT_REPORT_SERVICE_FAILURE_MODE`
+to `deny` would make them fail closed, at the price of failed requests whenever
+Limitador does not answer within its timeout. Not changed; tracked as
+`homelab-2026-o8y.15`.
+
+To see whether auth timeouts are still happening:
 
 ```bash
 oc logs -n redhat-ai-gateway-infra deploy/maas-api --since=1h | grep -c 'API key validation failed'
