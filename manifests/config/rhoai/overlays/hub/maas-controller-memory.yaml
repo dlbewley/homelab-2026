@@ -1,0 +1,50 @@
+---
+# Raises the memory limit on RHOAI's maas-controller, which cannot start on the
+# hub with the limit it ships with.
+#
+# Shipped: limits.memory 512Mi. On the hub the controller reached 400-510Mi
+# within 90 seconds of starting and was OOM-killed, every time, until it sat in
+# CrashLoopBackOff. With room to run it settles at 550-615Mi. It is not a leak
+# or a reconcile loop: it dies while filling its caches. The hub has about
+# 1,600 Secrets and 1,400 ConfigMaps in 125 namespaces — it is also the ACM hub —
+# and that is what the caches are sized by.
+#
+# 1Gi leaves about 60% headroom over what was measured. Revisit it if the number
+# of namespaces or Secrets grows a lot, or after an RHOAI upgrade: upstream has
+# since restricted this controller's Secret cache to one namespace, which
+# should bring the real need down and may make this file unnecessary.
+#
+# WHY IT MATTERS EVEN THOUGH MaaS LOOKED HEALTHY. The controller's first
+# reconcile finished before its first kill, so maas-api and the gateway policies
+# existed and ModelsAsAServiceReady said True. Requests are served without it.
+# But nothing new — a model, a subscription, an auth policy — is reconciled by
+# a controller that is dead most of the time.
+#
+# THE DEPLOYMENT BELONGS TO RHOAI (owner: AIGateway/default-aigateway). There is
+# no supported setting for this: neither the AIGateway CR nor the maas Config CR
+# has a resources field. So this is a partial manifest, merged in by
+# server-side apply, declaring only the one limit. The ai-gateway-operator was
+# seen to re-apply the Deployment seconds after the limit was changed by hand
+# and leave the new value alone, so it tolerates this.
+#
+# Prune=false,Delete=false: removing this file must stop managing the limit,
+# never delete the controller.
+#
+# In overlays/hub, not base, because the right number depends on how big the
+# cluster is. Tracked as homelab-2026-o8y.11.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maas-controller
+  namespace: redhat-ods-applications
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          resources:
+            limits:
+              memory: 1Gi

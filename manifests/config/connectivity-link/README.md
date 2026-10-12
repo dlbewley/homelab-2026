@@ -52,10 +52,9 @@ This repo uses `kuadrant-system` for both. Every operator here has its own
 namespace and a named OperatorGroup, and nothing is installed into
 `openshift-operators`.
 
-**If RHOAI still reports Connectivity Link as missing once this is installed,
-that choice is the first thing to revisit** — move the Subscription to
-`openshift-operators` (which already has the `global-operators` OperatorGroup,
-so it needs no OperatorGroup of its own) and leave the `Kuadrant` CR where it is.
+**It works.** With the operator in `kuadrant-system`, the DataScienceCluster
+reports `KserveLLMInferenceServiceDependencies=True` and Models-as-a-Service
+reaches Ready (hub, 2026-10-11). `openshift-operators` is not required.
 
 ## Prerequisite: the `openshift-default` GatewayClass
 

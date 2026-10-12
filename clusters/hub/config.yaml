@@ -149,7 +149,7 @@ spec:
           # NotReady until every one of them is in place.
           - name: rhoai
             namespace: redhat-ods-applications
-            path: manifests/config/rhoai/base
+            path: manifests/config/rhoai/overlays/hub
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'

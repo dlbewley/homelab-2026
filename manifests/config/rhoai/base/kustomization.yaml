@@ -5,3 +5,4 @@ kind: Kustomization
 resources:
   - dscinitialization.yaml
   - datasciencecluster.yaml
+  - odhdashboardconfig.yaml
