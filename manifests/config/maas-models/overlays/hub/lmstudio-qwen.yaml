@@ -42,11 +42,14 @@ spec:
 ---
 # THE MODEL.
 #
-# Two names, deliberately different:
-#   modelName    what a MaaS client puts in the "model" field of a request
-#   targetModel  what LM Studio calls it — its exact model key, which carries a
-#                "-1m" suffix. Check with `lms ls` or GET /v1/models.
-# Clients get the plain name; the suffix is LM Studio's business.
+# THREE NAMES, and on RHOAI 3.5.1 clients use the FIRST:
+#   metadata.name  qwen2-5-7b-instruct     what the MaaS catalog lists and the
+#                                          gateway routes on. A resource name
+#                                          cannot contain the dot.
+#   modelName      qwen2.5-7b-instruct     meant to be the client-facing name;
+#                                          asking for it returned 404 here
+#   targetModel    qwen2.5-7b-instruct-1m  what LM Studio calls it — its exact
+#                                          model key. Check with `lms ls`.
 #
 # NO PORT OR TLS ANNOTATIONS. Red Hat's guide documents maas.opendatahub.io/port
 # and maas.opendatahub.io/tls on this object for exactly this case. On 3.5.1 they

@@ -29,10 +29,13 @@ spec:
       # From 1Password; see externalsecret-anthropic.yaml.
       name: anthropic-api-key
 ---
-# modelName and targetModel are the same here: Anthropic's own ID for the model,
-# which is complete as written and takes no date suffix. A new Haiku is a new
-# ID, so moving to it is a change to this file, not something that happens on
-# its own.
+# THE NAME CLIENTS USE IS metadata.name, not spec.modelName. On RHOAI 3.5.1 the
+# MaaS catalog lists a model by the name of its resource, and the gateway
+# routes on that. Here all three — resource name, modelName, targetModel — are
+# Anthropic's own ID for the model, so there is nothing to get wrong. Anthropic
+# IDs are complete as written and take no date suffix. A new Haiku is a new ID,
+# so moving to it is a change to this file, not something that happens on its
+# own.
 #
 # apiFormat: messages and path /v1/messages mean the provider speaks Anthropic's
 # Messages API. Clients may use either dialect through MaaS:
@@ -42,11 +45,13 @@ spec:
 #     answer back again.
 #   - Anthropic Messages (/v1/messages): passed through.
 #
-# TWO THINGS OpenAI-STYLE CLIENTS MUST KNOW about this model:
-#   - Do not send temperature, top_p or top_k. Haiku 5.5 rejects any
-#     non-default sampling value with a 400, and many OpenAI clients send
+# WHAT CLIENTS MUST KNOW, all seen on the hub 2026-10-12:
+#   - Do not send temperature, top_p or top_k. Haiku 5.5 answers 400,
+#     "`temperature` is deprecated for this model". Many OpenAI clients send
 #     temperature by default.
-#   - Send max_tokens. Anthropic's API requires it.
+#   - Do not ask for a stream. See the README: neither dialect streams
+#     correctly through this RHOAI build.
+#   - max_tokens may be omitted in OpenAI format; the translator supplies one.
 apiVersion: inference.opendatahub.io/v1alpha1
 kind: ExternalModel
 metadata:
