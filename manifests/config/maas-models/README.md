@@ -18,7 +18,7 @@ Tracked as `homelab-2026-o8y.9`, part of the epic `homelab-2026-o8y`.
 |---|---|---|
 | `claude-haiku-4-5` | Anthropic's API | **Working. The one to use in the Gen AI playground** |
 | `claude-haiku-5-5` | Anthropic's API | **Working**, for clients that send no `temperature`. A tenth of the price |
-| `gpt-6-luna` | OpenAI's API | Registered. Not yet exercised; see [gpt-6-luna on OpenAI](#gpt-6-luna-on-openai) |
+| `gpt-6-luna` | OpenAI's API | **Working**, for clients that send no `temperature` and no `max_tokens`. Not usable in the playground |
 | `qwen2.5-7b-instruct` | LM Studio on a Mac on the LAN | **Registered, not reachable.** RHOAI 3.5.1 requires TLS on 443 with a public certificate; LM Studio offers plain HTTP on 1234. See [What RHOAI 3.5.1 requires of an external model](#what-rhoai-351-requires-of-an-external-model) |
 
 Do not trust the status fields for the second. Its `MaaSModelRef` reports
@@ -182,22 +182,36 @@ The plainest case: the provider is OpenAI itself, on public TLS, speaking the
 dialect MaaS clients speak. The gateway swaps the credential and passes the rest
 through.
 
-Registered at the user's request with the model ID as given. Three things were
-not known when it was added and are worth checking on first use:
+Verified on 2026-10-12, against OpenAI directly and through the MaaS gateway:
 
-- **Whether it accepts `temperature`.** Several OpenAI models reject any value
-  but the default, as Claude Haiku 5.5 does, and the Gen AI playground always
-  sends one.
-- **Whether it accepts `max_tokens`** or insists on `max_completion_tokens`.
-- **What it costs.**
+| Request | Result |
+|---|---|
+| Model lookup at OpenAI | `gpt-6-luna` exists for this key |
+| Through MaaS, no sampling or length settings | `200` |
+| Through MaaS, `stream: true` | `200`, real chunks ending in `[DONE]` |
+| With `temperature: 0.2` | **`400`**: only the default value is supported |
+| With `max_tokens` | **`400`**: use `max_completion_tokens` instead |
 
-To check the model ID and the first two against OpenAI directly, with the key
-from the cluster and without printing it:
+**It cannot be used in the Gen AI playground**, for the same reason Claude Haiku
+5.5 cannot: the playground sends a `temperature` with every request.
+
+Its price was not looked up; see the budget table above.
+
+To repeat the model lookup with the key from the cluster, without printing it:
 
 ```bash
 K=$(oc get secret openai-api-key -n maas-models -o jsonpath='{.data.api-key}' | base64 -d)
 curl -s -o /dev/null -w '%{http_code}\n' https://api.openai.com/v1/models/gpt-6-luna -H "Authorization: Bearer $K"
 ```
+
+### Which model for the playground
+
+| Model | In the playground |
+|---|---|
+| `claude-haiku-4-5` | **Yes.** Accepts a temperature and streams |
+| `claude-haiku-5-5` | No: rejects any temperature |
+| `gpt-6-luna` | No: rejects any temperature but the default |
+| `qwen2.5-7b-instruct` | No: not reachable at all yet |
 
 ## qwen2.5-7b-instruct on LM Studio
 
