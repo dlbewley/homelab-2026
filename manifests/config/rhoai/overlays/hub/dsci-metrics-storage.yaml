@@ -1,0 +1,35 @@
+---
+# Turns on RHOAI's own metrics stack by giving it somewhere to keep data.
+#
+# With `metrics: {}` — the base, and the operator's default — the platform
+# reports "Metrics not configured" and deploys nothing. Naming storage is what
+# makes it create, in redhat-ods-monitoring, a Prometheus
+# (data-science-monitoringstack), a Thanos querier, an OpenTelemetry collector
+# and a Perses instance. The RHOAI dashboard's Observe & monitor pages read from
+# that Prometheus, not from cluster monitoring.
+#
+# It needs two operators: Cluster Observability (manifests/olm/
+# cluster-observability) and Red Hat build of OpenTelemetry (manifests/olm/
+# opentelemetry).
+#
+# replicas: 1. Unset, it is 2 on a multi-node cluster, each with its own
+# volume. One is enough for a usage report on a homelab; the cost is a gap in
+# the graphs while that pod is rescheduled.
+#
+# 5Gi and 90d are the values in Red Hat's example. Prometheus drops the oldest
+# data when the volume fills, whichever limit is reached first. The volume
+# comes from the default StorageClass.
+#
+# alerting and traces are left unconfigured. Traces would also need the Tempo
+# operator.
+apiVersion: dscinitialization.opendatahub.io/v2
+kind: DSCInitialization
+metadata:
+  name: default-dsci
+spec:
+  monitoring:
+    metrics:
+      replicas: 1
+      storage:
+        size: 5Gi
+        retention: 90d

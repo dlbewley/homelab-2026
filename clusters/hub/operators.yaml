@@ -104,6 +104,13 @@ spec:
           - name: rhoai
             namespace: redhat-ods-operator
             path: manifests/olm/rhoai/base
+          # Red Hat build of OpenTelemetry. AllNamespaces-only. Here for RHOAI's
+          # observability stack, which needs it to run its metrics collector.
+          # Its CRDs already exist on the hub, put there by ACM — see the
+          # Subscription.
+          - name: opentelemetry
+            namespace: openshift-opentelemetry-operator
+            path: manifests/olm/opentelemetry/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'

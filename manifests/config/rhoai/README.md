@@ -23,7 +23,9 @@ Tracked as the epic `homelab-2026-o8y`.
 | `rhods-operator` | `manifests/olm/rhoai` | The operator. Deploys nothing by itself |
 | `DSCInitialization/default-dsci` | `base/dscinitialization.yaml` | Platform settings. Created by the operator; co-owned here |
 | `DataScienceCluster/default-dsc` | `base/datasciencecluster.yaml` | Which components run |
-| `OdhDashboardConfig/odh-dashboard-config` | `base/odhdashboardconfig.yaml` | Three flags that make MaaS visible in the dashboard. Created by the operator; patched here |
+| `OdhDashboardConfig/odh-dashboard-config` | `base/odhdashboardconfig.yaml` | The flags that make MaaS visible in the dashboard. Created by the operator; patched here |
+| `MaasTenantConfig/default-tenant` | `base/maas-telemetry.yaml` | Usage metrics labelled per user. Created by the controller; patched here |
+| DSCI `monitoring.metrics` | `overlays/hub/dsci-metrics-storage.yaml` | Storage for RHOAI's metrics stack, which is what turns it on |
 | `Deployment/maas-controller` | `overlays/hub/maas-controller-memory.yaml` | Memory limit only. The shipped one is too small for the hub |
 
 ## Components
@@ -101,13 +103,14 @@ They live in `OdhDashboardConfig` (`odh-dashboard-config` in
 | `modelAsService` | The Models-as-a-Service pages |
 | `genAiStudio` | Gen AI studio and playground; needs `ogx` Managed |
 | `externalModels` | The external models page (Technology Preview) |
+| `observabilityDashboard` | Observe & monitor → Dashboard, including the MaaS Usage tab (Technology Preview) |
 
 The operator creates that object when it deploys the dashboard. The manifest
-here is partial: server-side apply merges the three flags in and leaves the rest
+here is partial: server-side apply merges these flags in and leaves the rest
 of the object to the operator.
 
 **On a fresh cluster this can race.** If ArgoCD applies the manifest before the
-operator has created the object, ArgoCD creates it with only these three flags,
+operator has created the object, ArgoCD creates it with only these flags,
 and upstream says the operator does not overwrite one that already exists. The
 dashboard could then be missing its defaults. On the hub the object existed
 first. If it ever happens, delete the object, let the operator recreate it, and
@@ -122,6 +125,73 @@ it deprecated and its validation rejects setting it on a new install.
 
 The CRD has other flags that may matter for agent work later — `toolCalling`,
 `genAiTracing`, `aiAssetCustomEndpoints` — none of which are set.
+
+## Token usage per user
+
+RHOAI 3.5 can report token consumption by user, subscription and model: the
+**Usage** tab under **Observe & monitor → Dashboard**, with a "Token Consumption
+by User" table that exports to CSV. It is a Technology Preview, visible to
+cluster admins only, and Red Hat describes it as showback, not billing-grade
+metering. None of it is on by default. Five things switch it on:
+
+| # | Setting | Where | What it does |
+|---|---|---|---|
+| 1 | Red Hat build of OpenTelemetry | `manifests/olm/opentelemetry` | Runs the collector the metrics stack deploys |
+| 2 | DSCI `monitoring.metrics.storage` | `overlays/hub/dsci-metrics-storage.yaml` | Deploys RHOAI's own Prometheus, Thanos querier and Perses in `redhat-ods-monitoring` |
+| 3 | Kuadrant `observability.enable` | `manifests/config/connectivity-link` | PodMonitors for Limitador and Authorino |
+| 4 | `MaasTenantConfig` `telemetry` | `base/maas-telemetry.yaml` | Labels the token counters with user, subscription and model |
+| 5 | `observabilityDashboard` | `base/odhdashboardconfig.yaml` | Shows the page |
+
+The Cluster Observability Operator is also required and was already installed
+(`manifests/olm/cluster-observability`).
+
+**What is counted.** Limitador's `authorized_hits` is tokens, `authorized_calls`
+is requests allowed, `limited_calls` is requests refused by a token limit. Only
+`authorized_hits` carries the `model` label.
+
+**Limits worth knowing before trusting a number:**
+
+- Tokens are a single total. Input and output are not separated, so cost
+  cannot be computed exactly for a provider that prices them differently —
+  which is every provider registered in `maas-models`.
+- A request made with a MaaS API key is attributed to the user who created the
+  key.
+- Tokens are counted from the usage block in the model's response. A streamed
+  response that carries none increments the request count and not the token
+  count.
+- Counters live in Limitador's memory. Prometheus keeps the history, but only
+  from the moment it started scraping.
+
+**`captureUser` is off by default** and on here; the reasoning is in
+`base/maas-telemetry.yaml`. It is the only one of the five that is a judgement
+rather than a prerequisite.
+
+**Red Hat's guide patches the wrong object.** Its "Enable telemetry" step edits
+`Tenant/default-tenant`. `Tenant` is deprecated, and a cluster installed at 3.5
+has none; the settings live on `MaasTenantConfig/default-tenant` in
+`models-as-a-service`.
+
+Checking it, in the order the data flows:
+
+```bash
+# the gateway is labelling: a TelemetryPolicy exists
+oc get telemetrypolicies.extensions.kuadrant.io -A
+
+# Limitador has per-user series (after at least one request)
+oc exec -n kuadrant-system deploy/limitador-limitador -- \
+  curl -s localhost:8080/metrics | grep '^authorized_hits'
+
+# the metrics stack is up
+oc get dscinitialization default-dsci -o json | jq -r \
+  '.status.conditions[] | select(.type|test("MonitoringStack|Perses|Collector")) | "\(.type) \(.status)"'
+oc get pods -n redhat-ods-monitoring
+```
+
+**Not enabled: the log-based pipeline.** 3.5 adds a second route to the same
+report, `usageLogging: true` on the MaaS `Config`, built on gateway access logs
+in Loki rather than on metrics. It is more accurate, keeps 30 days on object
+storage, and gives each non-admin user a dashboard of their own usage. It needs
+the Loki operator and a `LokiStack` named `usage`.
 
 ## The maas-controller needs more memory than it ships with
 
@@ -219,6 +289,9 @@ homelab-2026-o8y.2` has the full record.
 - [Uninstalling OpenShift AI Self-Managed](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/installing_and_uninstalling_openshift_ai_self-managed/uninstalling-openshift-ai-self-managed_uninstalling-openshift-ai-self-managed)
 
 ## References
+
+- [Govern LLM access with Models-as-a-Service 3.5, §1.18: Monitor usage by using the observability dashboard](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html-single/govern_llm_access_with_models-as-a-service/index)
+- [Managing OpenShift AI 3.5: Manage observability](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/managing_openshift_ai/managing-observability_managing-rhoai)
 
 - [Govern LLM access with Models-as-a-Service](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/deploy-and-manage-models-as-a-service)
 - [Working with OGX](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_ogx/overview-of-ogx_rag)

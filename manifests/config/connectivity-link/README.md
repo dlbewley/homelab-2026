@@ -188,16 +188,26 @@ oc wait kuadrant/kuadrant -n kuadrant-system --for=condition=Ready=true --timeou
 
 ## Not configured
 
-**Observability.** `spec.observability.enable` on the `Kuadrant` CR creates the
-PodMonitors MaaS usage metrics are built on. Not set. For the same reason
-`kuadrant-system` does not carry `openshift.io/cluster-monitoring`, unlike most
-operator namespaces here — see the comment in the Namespace manifest.
-
 **Rate-limit failure mode.** Upstream MaaS suggests
 `RATELIMIT_CHECK_SERVICE_FAILURE_MODE` / `RATELIMIT_REPORT_SERVICE_FAILURE_MODE`
 on the operator Subscription. They decide whether token limits fail open or
 closed when Limitador is down, which is worth a deliberate decision before
 anything depends on those limits. No Red Hat document mentions them.
+
+## Observability is on
+
+`spec.observability.enable: true` on the `Kuadrant` CR makes the operator create
+PodMonitors for Limitador, Authorino and its own controllers. It is one of five
+settings behind the Models-as-a-Service usage report; the other four and the
+whole picture are in the [rhoai README](../rhoai/README.md#token-usage-per-user).
+
+`kuadrant-system` does not carry `openshift.io/cluster-monitoring`, unlike most
+operator namespaces here, so these are scraped by user workload monitoring and
+show up in the console under Observe → Metrics:
+
+```bash
+oc get podmonitors.monitoring.coreos.com -n kuadrant-system
+```
 
 ## The auth timeout is raised to 2 seconds
 

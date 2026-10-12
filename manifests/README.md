@@ -41,6 +41,7 @@ straight:
 | `cloudnative-pg` | `spec: {}` | **chosen** — must manage Postgres `Cluster`s in its consumers' namespaces (`keycloak` today) |
 | `ovn-recon` | `spec: {}` | **chosen** — the collector probes `openshift-ovn-kubernetes` and `openshift-frr-k8s` |
 | `rhoai` | `spec: {}` | AllNamespaces is the **only** mode the operator supports |
+| `opentelemetry` | `spec: {}` | AllNamespaces is the **only** mode the operator supports |
 | everything else | `targetNamespaces` | own namespace is sufficient |
 
 The chosen ones would resolve perfectly well as OwnNamespace and then quietly
@@ -127,3 +128,4 @@ is versioned and reviewable here instead of hidden in an Application spec.
 | rhacm-observability | — | ✅ | Config-only. `MultiClusterObservability` on a Thanos bucket provisioned by an ObjectBucketClaim on ODF's RGW; `thanos.yaml` composed by an ExternalSecret rather than the catalog's setup Job. Every storage size set explicitly — the CRD defaults total 212Gi — see [its README](config/rhacm-observability/README.md) |
 | mtv | ✅ | ✅ | Migration Toolkit for Virtualization + `ForkliftController`, plus the lab vCenter as a source `Provider`. **OwnNamespace-only**, like rhacm. Credentials come from the same 1Password item as the ACM credential, under different key names — see [its README](config/mtv/README.md) |
 | rhoai | ✅ | ✅ | Red Hat OpenShift AI (`rhods-operator`), pinned to `stable-3.5` rather than the default `stable-3.x`. Config is the `DSCInitialization` and a `DataScienceCluster` that enables the dashboard, Models-as-a-Service, KServe, workbenches, OGX and the MLflow operator and turns everything else off — the hub has no GPU. MaaS depends on `maas-gateway`, `connectivity-link` and `maas-database` — see [its README](config/rhoai/README.md) |
+| opentelemetry | ✅ | — | Red Hat build of OpenTelemetry. No config of its own: RHOAI's metrics stack creates the collector it reconciles. Its CRDs were already on the hub, put there by ACM's observability operator — see the Subscription |

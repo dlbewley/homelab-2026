@@ -1,0 +1,52 @@
+---
+# Makes the Models-as-a-Service gateway label its usage metrics, so token
+# consumption can be reported per user, per subscription and per model.
+#
+# Limitador counts tokens whether or not this is set — but only per model
+# (authorized_hits{limitador_namespace="maas-models/<model>"}). This is what
+# makes maas-controller create the TelemetryPolicy `maas-telemetry`, which adds
+# the `user`, `subscription`, `model` and `organization_id` labels, and the
+# Istio Telemetry `latency-per-subscription`.
+#
+# captureUser is the one deliberate departure from the defaults. It is off by
+# default for two reasons, neither of which bites here: the user ID in metrics
+# is personal data, and one series per user per model grows Prometheus storage
+# with the number of users. The hub has a handful of users, all of whom are its
+# admins. Without it the Usage dashboard's "Token Consumption by User" table has
+# nothing to group by. Reconsider before copying this to a shared cluster.
+#
+# The other three are stated at their defaults so the whole decision is in one
+# place. captureGroup stays off: it is the high-cardinality one.
+#
+# `enabled: true` IS STATED EVEN THOUGH THE CRD SAYS IT DEFAULTS TO TRUE. On the
+# hub the object had an empty spec and no TelemetryPolicy existed, so the
+# default evidently does not apply when `telemetry` is absent altogether.
+#
+# THE CONTROLLER CREATES THIS OBJECT (AITenant/models-as-a-service bootstraps
+# it, with an empty spec). This manifest is partial, merged in by server-side
+# apply. Upstream says the controller "creates or adopts" it, so ArgoCD getting
+# there first on a fresh cluster is harmless. The name is fixed: the CRD rejects
+# anything but default-tenant.
+#
+# RED HAT'S 3.5 GUIDE NAMES THE WRONG KIND. Its "Enable telemetry" procedure
+# patches `Tenant/default-tenant`. Tenant is the deprecated predecessor; a
+# cluster installed at 3.5 has no Tenant object, only this one.
+#
+# Prune=false,Delete=false: removing this file must stop managing the settings,
+# not delete the tenant's configuration.
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaasTenantConfig
+metadata:
+  name: default-tenant
+  namespace: models-as-a-service
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  telemetry:
+    enabled: true
+    metrics:
+      captureUser: true
+      captureModelUsage: true
+      captureOrganization: true
+      captureGroup: false

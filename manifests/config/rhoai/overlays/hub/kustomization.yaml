@@ -6,3 +6,8 @@ resources:
   # Sizing for an operator-owned controller. Depends on the size of the
   # cluster, so it is set here rather than in base.
   - maas-controller-memory.yaml
+
+patches:
+  # Turns on RHOAI's metrics stack. In the overlay because it names a volume
+  # size, and base names none.
+  - path: dsci-metrics-storage.yaml

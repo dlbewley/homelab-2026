@@ -1,0 +1,41 @@
+---
+# Red Hat build of OpenTelemetry. Here for one consumer: RHOAI's observability
+# stack, which deploys an OpenTelemetryCollector (data-science-collector) in
+# redhat-ods-monitoring as soon as DSCInitialization spec.monitoring.metrics is
+# configured. Without this operator that collector is never reconciled and the
+# RHOAI dashboards, including the Models-as-a-Service Usage tab, stay empty.
+# See manifests/config/rhoai/README.md.
+#
+# Channel verified against the live catalog on 2026-10-12:
+#   oc get packagemanifest opentelemetry-product -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> stable  (opentelemetry-operator.v0.158.0-3; the only channel)
+#
+# THE CRDs ALREADY EXIST ON THE HUB, AND THIS OPERATOR DID NOT PUT THEM THERE.
+# opentelemetrycollectors.opentelemetry.io and instrumentations.opentelemetry.io
+# were created by ACM's observability operator (owner: MultiClusterObservability
+# `observability`) for its multicluster addon, with no operator behind them.
+# Installing this package makes OLM replace them with its own, newer version.
+#
+# The two are meant to coexist. ACM applies those CRDs with a non-forced
+# server-side apply and, on a field conflict with another manager, logs
+# "likely managed by another operator, skipping update" and moves on
+# (stolostron/multicluster-observability-operator, release-2.17,
+# operators/pkg/deploying/deployer.go, updateCRD). So ACM should stop touching
+# them once OLM owns the spec. Check after install that the CRD is the OLM one
+# and stays that way:
+#   oc get crd opentelemetrycollectors.opentelemetry.io --show-managed-fields \
+#     -o jsonpath='{range .metadata.managedFields[*]}{.manager}{"\n"}{end}'
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: opentelemetry-product
+  namespace: openshift-opentelemetry-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: opentelemetry-product
+  channel: stable
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
