@@ -12,6 +12,7 @@ the second needs a cluster; the third needs neither.
 | [`destroy-cluster-vms.sh`](destroy-cluster-vms.sh) | day 0 — teardown | `govc` + vSphere + `jq` |
 | [`destroy-ipi-cluster.sh`](destroy-ipi-cluster.sh) | day 0 — teardown (reference) | `govc` + vSphere + `jq` + `openshift-install` |
 | [`verify-channels.sh`](verify-channels.sh) | day 2 — cluster validation | logged-in `oc` + `jq` |
+| [`list-operator-images.sh`](list-operator-images.sh) | day 2 — mirror planning | `podman` + registry login + `oc` + `jq` + `yq` |
 | [`create-keycloak-realm-secrets.sh`](create-keycloak-realm-secrets.sh) | day 2 — secret bootstrap | `op` + `jq` |
 | [`create-github-oauth-secret.sh`](create-github-oauth-secret.sh) | day 2 — secret bootstrap | `op` + `jq` |
 | [`export-homelab-ca.sh`](export-homelab-ca.sh) | day 2 — secret bootstrap | logged-in `oc` + `op` + `jq` + `openssl` |
@@ -268,6 +269,45 @@ Exit 1 on any problem. Statuses: `DRIFT`, `UNSUPPORTED`, `CHANNEL NOT FOUND`,
 added.
 
 Needs a logged-in `oc` and `jq`.
+
+## `list-operator-images.sh`
+
+Lists every image the operators in `clusters/<cluster>/operators.yaml` will
+pull, read from the catalogs, so it works **before** anything is installed —
+to size or build a mirror for a disconnected install.
+
+```bash
+./list-operator-images.sh -v 4.22          # PACKAGE CHANNEL BUNDLE IMAGE table
+```
+
+```bash
+./list-operator-images.sh -v 4.22 -i       # unique images, catalogs included
+```
+
+```bash
+./list-operator-images.sh -v 4.22 -a -i    # every bundle in each channel
+```
+
+Subscriptions are read from the **rendered** components, not `base/`, because
+an overlay can change the channel — `ovn-recon`'s hub overlay does. Each
+source maps to a catalog image: the default Red Hat sources to their index at
+the `-v` minor, anything else to the `CatalogSource` of that name in the same
+components. Only the package's directory is copied out of each catalog with
+`podman`, so no `opm render` of the whole index.
+
+By default it reports the channel **head**, the bundle a fresh Subscription
+installs today. `-a` adds every older bundle in the channel, which a mirror
+needs if clusters will upgrade through them — 374 images becomes ~5,200 on the
+hub's 4.22 catalogs.
+
+Each bundle contributes its bundle image and its `relatedImages`. A package
+whose CSV leaves an operand out of `relatedImages` will under-report; the
+installed CSVs (`oc get csv -A -l '!olm.copiedFrom'`) show what actually
+runs once the operators are in.
+
+Exit 1 if a source, package or channel is missing from its catalog. Needs
+`podman` logged in to `registry.redhat.io`; `-v` is only optional when `oc` is
+logged in to a cluster to read it from.
 
 ---
 
