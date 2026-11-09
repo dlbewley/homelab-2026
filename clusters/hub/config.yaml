@@ -157,6 +157,13 @@ spec:
           - name: rhoai
             namespace: redhat-ods-applications
             path: manifests/config/rhoai/overlays/hub
+          # FlowCollector, Prometheus-only: flow metrics, no flow storage.
+          # Cluster-scoped, CRD from the netobserv CSV, so converges by retry.
+          # To add Loki, point this at overlays/loki AND add `loki` to
+          # operators.yaml — see manifests/config/netobserv/README.md.
+          - name: netobserv
+            namespace: netobserv
+            path: manifests/config/netobserv/base
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'

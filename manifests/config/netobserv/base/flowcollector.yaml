@@ -1,0 +1,80 @@
+---
+# Network Observability, Prometheus-only.
+#
+# THE NAME IS NOT A CHOICE. Only one FlowCollector may exist and it must be
+# named `cluster`. It is cluster-scoped, so no namespace is set.
+#
+# LOKI MUST BE TURNED OFF EXPLICITLY. In the v1beta2 CRD, spec.loki.enable
+# defaults to TRUE and spec.loki.mode to Monolithic, pointing at a Loki that
+# nothing here deploys. Omitting the loki block does not mean "no Loki", it
+# means "a Loki at http://loki.netobserv.svc:3100 that does not exist". The
+# optional overlay ../overlays/loki patches this block to use a LokiStack.
+#
+# What Prometheus-only gives up (per the operator's CSV description): the
+# console cannot show raw flows, and metrics/topology are less detailed —
+# aggregated per namespace and workload owner rather than per pod or IP. The
+# Network Traffic view's Overview and Topology tabs still work; Traffic flows
+# does not.
+#
+# Field defaults checked against the CRD at the upstream tag the CSV names,
+# netobserv/netobserv-operator 2.0.1-community (CSV
+# network-observability-operator.v2.0.0, 2026-11-09). Values set below are
+# the ones that differ from the default, or where the default deserves saying.
+#
+# SkipDryRunOnMissingResource: the CRD arrives with the operator's CSV, which is
+# a separate Application, so this converges by retry like every other config.
+apiVersion: flows.netobserv.io/v1beta2
+kind: FlowCollector
+metadata:
+  name: cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  # Where the operator puts the agent, flowlogs-pipeline and console plugin. It
+  # creates this namespace itself. The CRD gives no default, so state it.
+  namespace: netobserv
+
+  # Service (the default): agents send to a flowlogs-pipeline Deployment.
+  # Direct would run flowlogs-pipeline as a DaemonSet — one per node, ten on
+  # the hub — and Kafka needs a Kafka this cluster does not have.
+  deploymentModel: Service
+
+  agent:
+    type: eBPF
+    ebpf:
+      # 1 packet in 400, not the CRD default of 50 (8x fewer sampled). This
+      # matches the "basic FlowCollector" OpenShift plans to create on every
+      # cluster at install time (enhancement openshift/enhancements#1908;
+      # NetworkObservabilityInstall gate, Tech Preview in 5.0): sampling 400,
+      # no Loki, DNSTracking. Red Hat chose 400 for metrics-only collection
+      # running by default, which is the same capacity trade made here. Lower
+      # it for more accurate metrics at more agent and pipeline CPU/memory.
+      sampling: 400
+      # DNS latency, response codes and query names — also part of the planned
+      # install-time default. Does not need privileged mode.
+      features:
+        - DNSTracking
+      # Unprivileged (the default). Privileged mode is only needed for some
+      # optional features (packet drops, network events) that are not enabled.
+      privileged: false
+
+  processor:
+    # flowlogs-pipeline replicas. The CRD default is 3, which Red Hat sizes for
+    # a 10-node cluster WITH Loki. Without Loki the pipeline only derives
+    # metrics, and the hub is capacity constrained, so one. Losing it drops
+    # flows until it restarts; it does not lose stored data, because there is
+    # none.
+    consumerReplicas: 1
+
+  loki:
+    enable: false
+
+  prometheus:
+    querier:
+      # The console plugin's only data source once Loki is off. If both were
+      # disabled the operator would not deploy the console plugin at all.
+      enable: true
+
+  consolePlugin:
+    enable: true

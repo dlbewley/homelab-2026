@@ -1,0 +1,15 @@
+---
+# In the Prometheus-only base the operator creates `netobserv` itself, from
+# FlowCollector spec.namespace. Here the LokiStack, its bucket and its secret
+# must exist in it BEFORE the FlowCollector, so it is declared — which is also
+# Red Hat's documented order.
+#
+# Prune=false,Delete=false: switching back to the base removes this declaration,
+# and the namespace still holds the operator's own workloads at that point.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: netobserv
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false

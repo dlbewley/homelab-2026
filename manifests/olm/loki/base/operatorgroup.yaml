@@ -1,0 +1,16 @@
+---
+# AllNamespaces is the ONLY install mode this operator supports, so `spec: {}`.
+# It also has to be: the LokiStack lives in `netobserv`, not here.
+#   oc get packagemanifest -n openshift-marketplace -l catalog=redhat-operators \
+#     -o json | jq -r '.items[]|select(.metadata.name=="loki-operator")
+#      | .status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> AllNamespaces
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: loki-operatorgroup
+  namespace: openshift-operators-redhat
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec: {}

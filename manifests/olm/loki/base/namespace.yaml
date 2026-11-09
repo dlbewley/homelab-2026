@@ -1,0 +1,23 @@
+---
+# NOT INSTALLED ON THE HUB. This component is not listed in
+# clusters/hub/operators.yaml; it exists for the optional Loki backend of
+# Network Observability (manifests/config/netobserv/overlays/loki). Enable both
+# together — see manifests/config/netobserv/README.md.
+#
+# openshift-operators-redhat is the namespace Red Hat documents for the Loki
+# Operator (and historically for Elasticsearch). The package suggests none, so
+# this follows the docs. The cluster-monitoring label is required by them, so
+# the operator's metrics are scraped by the platform Prometheus.
+#
+# Prune=false,Delete=false: the name is a shared convention, not ours. If a
+# second Red Hat operator (OpenShift Logging's Loki, say) is ever installed
+# here, removing this component must not delete the namespace out from under it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-operators-redhat
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false

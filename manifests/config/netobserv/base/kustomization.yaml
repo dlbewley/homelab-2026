@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Prometheus-only: flow METRICS go to cluster monitoring, individual flows are
+# not stored. This is the hub's configuration. The Loki backend is an opt-in
+# overlay — see ../overlays/loki and the README.
+resources:
+  - flowcollector.yaml

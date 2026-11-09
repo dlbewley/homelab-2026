@@ -1,0 +1,39 @@
+---
+# The flow store. Named `loki` because that is FlowCollector
+# spec.loki.lokiStack.name's default; the patch states it anyway.
+#
+# size: 1x.pico is the smallest SUPPORTED size (1x.demo is smaller but
+# unsupported and has no replication). Red Hat's NetObserv sizing table pairs a
+# 10-node cluster with 1x.extra-small; pico is the deliberate step down for a
+# capacity-constrained lab. Raise it here if queries time out or ingestion lags.
+#
+# tenants.mode openshift-network is the mode Network Observability requires. It
+# authorizes reads through the netobserv-reader roles; cluster-admins can read
+# all flows without further RBAC.
+#
+# SkipDryRunOnMissingResource: the CRD arrives with the Loki Operator's CSV.
+apiVersion: loki.grafana.com/v1
+kind: LokiStack
+metadata:
+  name: loki
+  namespace: netobserv
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  size: 1x.pico
+  storage:
+    schemas:
+      - version: v13
+        effectiveDate: "2026-11-01"
+    secret:
+      name: loki-s3
+      type: s3
+    tls:
+      # Present in every namespace; key service-ca.crt (the LokiStack default
+      # caKey). Trusts the MCG endpoint's service-CA certificate.
+      caName: openshift-service-ca.crt
+  # Block storage for ingester WALs and the compactor, not for flows.
+  storageClassName: ocs-storagecluster-ceph-rbd
+  tenants:
+    mode: openshift-network
