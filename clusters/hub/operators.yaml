@@ -111,6 +111,13 @@ spec:
           - name: opentelemetry
             namespace: openshift-opentelemetry-operator
             path: manifests/olm/opentelemetry/base
+          # Network Observability. AllNamespaces-only. The FlowCollector is
+          # config. Its optional Loki backend needs the `loki` component
+          # (manifests/olm/loki), deliberately NOT listed here — the hub runs
+          # Prometheus-only for capacity. See manifests/config/netobserv/README.md.
+          - name: netobserv
+            namespace: openshift-netobserv-operator
+            path: manifests/olm/netobserv/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'

@@ -1,0 +1,20 @@
+---
+# Object storage for the LokiStack, from ODF's Multicloud Object Gateway.
+#
+# bucketName is FIXED rather than generateBucketName, so the S3 secret below can
+# state it statically. The OBC writes the bucket name to a ConfigMap, which the
+# External Secrets kubernetes provider does not read; fixing the name avoids
+# needing it.
+#
+# The OBC creates a Secret and a ConfigMap, both named `netobserv-loki`, in this
+# namespace. The Secret carries AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: netobserv-loki
+  namespace: netobserv
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  bucketName: netobserv-loki
+  storageClassName: openshift-storage.noobaa.io

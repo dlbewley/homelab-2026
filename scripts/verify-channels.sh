@@ -30,14 +30,30 @@ fi
 echo "Cluster: $(oc whoami --show-server)  OpenShift $(oc get clusterversion version -o jsonpath='{.status.desired.version}')"
 printf '\n%-22s %-18s %-18s %s\n' COMPONENT WANTED DEFAULT STATUS
 
+# A package name is NOT unique across catalogs. `loki-operator` exists in both
+# redhat-operators and community-operators, and `oc get packagemanifest
+# loki-operator` silently returns one of them (the community one, on the hub).
+# So look a package up within the catalog its Subscription names in `source`,
+# which is the one OLM will actually resolve against.
+#
+# Each catalog's package list is fetched once and cached for the run.
+cache=$(mktemp -d)
+trap 'rm -rf "$cache"' EXIT
+pm() { # pm <package> <catalog>  -> that package's JSON, or nothing
+  local f="$cache/$2.json"
+  [[ -f "$f" ]] || oc get packagemanifest -n openshift-marketplace -l "catalog=$2" \
+                     -o json >"$f" 2>/dev/null || echo '{"items":[]}' >"$f"
+  jq -c --arg n "$1" '.items[] | select(.metadata.name==$n)' "$f"
+}
+src_of() { awk '/^  source:/ {print $2; exit}' "$1"; }
+
 drift=0
 while IFS= read -r sub; do
   component=$(basename "$(dirname "$(dirname "$sub")")")
   pkg=$(awk '/^  name:/ {print $2; exit}' "$sub")
   want=$(awk '/^  channel:/ {print $2; exit}' "$sub")
 
-  got=$(oc get packagemanifest "$pkg" -n openshift-marketplace \
-          -o jsonpath='{.status.defaultChannel}' 2>/dev/null || true)
+  got=$(pm "$pkg" "$(src_of "$sub")" | jq -r '.status.defaultChannel // empty')
 
   if [[ -z "$got" ]]; then
     status="NOT IN CATALOG"; got="-"; drift=1
@@ -91,13 +107,13 @@ while IFS= read -r og; do
   # defaults to stable-v26.6 while channels[0] is stable-v22. Reading the wrong
   # one can report a false 'ok' on the very check that exists to catch the
   # metallb install-mode bug.
-  supported=$(oc get packagemanifest "$pkg" -n openshift-marketplace -o json 2>/dev/null \
-    | jq -r --arg c "$chan" '
+  pkg_json=$(pm "$pkg" "$(src_of "$sub")")
+  supported=$(jq -r --arg c "$chan" '
         .status.channels[]? | select(.name==$c)
         | .currentCSVDesc.installModes
-        | map(select(.supported)) | map(.type) | join(",")' 2>/dev/null || true)
+        | map(select(.supported)) | map(.type) | join(",")' <<<"$pkg_json" 2>/dev/null || true)
 
-  if ! oc get packagemanifest "$pkg" -n openshift-marketplace >/dev/null 2>&1; then
+  if [[ -z "$pkg_json" ]]; then
     status="NOT IN CATALOG"; drift=1
   elif [[ -z "$supported" ]]; then
     status="CHANNEL '$chan' NOT FOUND"; drift=1

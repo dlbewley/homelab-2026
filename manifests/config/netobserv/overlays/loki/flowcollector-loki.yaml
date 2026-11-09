@@ -1,0 +1,19 @@
+---
+# Points the base FlowCollector at the LokiStack instead of leaving Loki off.
+#
+# With both Prometheus and Loki enabled, the console prefers Prometheus and
+# falls back to Loki for what Prometheus cannot answer (raw flows, per-pod and
+# per-IP detail), so the base's prometheus.querier stays on.
+#
+# lokiStack.namespace is omitted: it defaults to spec.namespace (netobserv),
+# where the LokiStack is. Setting it to another namespace needs extra RBAC.
+apiVersion: flows.netobserv.io/v1beta2
+kind: FlowCollector
+metadata:
+  name: cluster
+spec:
+  loki:
+    enable: true
+    mode: LokiStack
+    lokiStack:
+      name: loki

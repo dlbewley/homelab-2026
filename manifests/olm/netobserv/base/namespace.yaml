@@ -1,0 +1,18 @@
+---
+# Namespace name comes from the operator's own suggestion:
+#   oc get packagemanifest netobserv-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.annotations["operatorframework.io/suggested-namespace"]'
+#   -> openshift-netobserv-operator
+#
+# Operator only. The FlowCollector's workloads (eBPF agent, flowlogs-pipeline,
+# console plugin) run in `netobserv`, which the operator creates from
+# FlowCollector spec.namespace — see manifests/config/netobserv.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-netobserv-operator
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

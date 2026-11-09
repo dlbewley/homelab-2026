@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# OPT-IN. Not used by the hub, which runs ../../base (Prometheus-only) because of
+# capacity. This overlay adds a LokiStack on ODF object storage and points the
+# FlowCollector at it, so the console can show individual flows and per-pod
+# detail.
+#
+# Needs the Loki Operator, which is its own OLM component (manifests/olm/loki,
+# also not installed on the hub). Enabling is two edits in clusters/<cluster>/:
+# add `loki` to operators.yaml and point the netobserv entry in config.yaml at
+# this overlay. See ../../README.md.
+#
+# Names ODF's StorageClasses (object and block). Any cluster with ODF can use it
+# as is; one without ODF needs its own overlay.
+resources:
+  - ../../base
+  - namespace.yaml
+  - objectbucketclaim.yaml
+  - s3-secret.yaml
+  - lokistack.yaml
+patches:
+  - path: flowcollector-loki.yaml
