@@ -164,6 +164,11 @@ spec:
           - name: netobserv
             namespace: netobserv
             path: manifests/config/netobserv/base
+          # Offline Knowledge Portal at docs.apps.<cluster domain>. Waits for
+          # the 1Password item eso/RHOKP/credential; see the component README.
+          - name: rhokp
+            namespace: rhokp
+            path: manifests/config/rhokp/overlays/hub
   template:
     metadata:
       name: 'hub-cfg-{{ .name }}'

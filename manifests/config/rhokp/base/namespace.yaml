@@ -1,0 +1,9 @@
+---
+# A namespace of its own for the Offline Knowledge Portal: one Deployment, its
+# access key and nothing else.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rhokp
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
