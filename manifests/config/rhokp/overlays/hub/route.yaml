@@ -1,0 +1,24 @@
+---
+# docs.apps.hub.lab.bewley.net
+#
+# Edge: the router terminates TLS with its own wildcard certificate
+# (*.apps.hub.lab.bewley.net, from homelab-ca) and talks plain HTTP to the
+# portal on 8080. No certificate here, so the default one applies.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: rhokp
+  namespace: rhokp
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  host: docs.apps.hub.lab.bewley.net
+  to:
+    kind: Service
+    name: rhokp
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
