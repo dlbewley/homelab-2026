@@ -1,8 +1,17 @@
 ---
-# Channel verified against the live hub cluster on 2026-08-16:
-#   oc get packagemanifest mtv-operator -n openshift-marketplace \
-#     -o jsonpath='{.status.defaultChannel}'
-#   -> release-v2.12  (mtv-operator.v2.12.5; the other channel is release-v2.11)
+# Channel verified against the live hub cluster (OpenShift 4.22.22) on 2026-11-24:
+#   oc get packagemanifest mtv-operator -n openshift-marketplace -o json \
+#     | jq -r '.status.channels[]|"\(.name)=\(.currentCSV)"'
+#   -> release-v2.11=mtv-operator.v2.11.7
+#      release-v2.12=mtv-operator.v2.12.10
+#      release-v5.0=mtv-operator.v5.0.0
+#
+# release-v5.0 is NOT the catalog default on 4.22 (that is still release-v2.12).
+# It is chosen ahead of the hub's upgrade to OpenShift 5.0, because the 5.0
+# catalog carries release-v5.0 and nothing else: a Subscription left on
+# release-v2.12 would point at a channel that no longer exists. Whether MTV 5.0
+# is supported on OpenShift 4.22 was not confirmed; running it there briefly,
+# between this change and the cluster upgrade, is an accepted risk.
 #
 # The channel is version-pinned, so this does not float across MTV releases.
 # Bumping it is a deliberate, reviewable change. Re-check with
@@ -16,7 +25,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   name: mtv-operator
-  channel: release-v2.12
+  channel: release-v5.0
   source: redhat-operators
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic

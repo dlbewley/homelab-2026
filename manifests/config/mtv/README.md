@@ -52,7 +52,7 @@ oc get packagemanifest mtv-operator -n openshift-marketplace -o json | jq -r \
 |---|---|
 | package | `mtv-operator` |
 | catalog | `redhat-operators` |
-| channel | `release-v2.12` (also available: `release-v2.11`) |
+| channel | `release-v5.0` (also available on 4.22: `release-v2.12`, `release-v2.11`; the 5.0 catalog has only `release-v5.0`) |
 | CSV | `mtv-operator.v2.12.5` |
 | namespace | `openshift-mtv` |
 
