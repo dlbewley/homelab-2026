@@ -118,6 +118,12 @@ spec:
           - name: netobserv
             namespace: openshift-netobserv-operator
             path: manifests/olm/netobserv/base
+          # OpenShift Lightspeed. OwnNamespace ONLY, so targetNamespaces — and
+          # the namespace is fixed by the operator, not chosen. The operator
+          # alone shows nothing in the console; that takes an OLSConfig.
+          - name: lightspeed
+            namespace: openshift-lightspeed
+            path: manifests/olm/lightspeed/base
   template:
     metadata:
       name: 'hub-olm-{{ .name }}'

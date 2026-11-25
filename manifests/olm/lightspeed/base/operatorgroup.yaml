@@ -1,0 +1,20 @@
+---
+# targetNamespaces is REQUIRED. OwnNamespace is the ONLY install mode this
+# operator supports — not SingleNamespace, not AllNamespaces:
+#   oc get packagemanifest lightspeed-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.installModes|map(select(.supported))|map(.type)|join(", ")'
+#   -> OwnNamespace
+#
+# Same shape as rhacm and mtv. An empty `spec: {}` would request AllNamespaces
+# and fail resolution. scripts/verify-channels.sh checks this.
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: lightspeed-operatorgroup
+  namespace: openshift-lightspeed
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  targetNamespaces:
+    - openshift-lightspeed

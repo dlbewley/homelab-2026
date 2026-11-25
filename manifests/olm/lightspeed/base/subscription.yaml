@@ -1,0 +1,25 @@
+---
+# OpenShift Lightspeed: the AI assistant in the web console.
+#
+# Channel verified against the live hub catalog on 2026-11-25 (OpenShift 5.0.1):
+#   oc get packagemanifest lightspeed-operator -n openshift-marketplace \
+#     -o jsonpath='{.status.defaultChannel}'
+#   -> stable  (lightspeed-operator.v2.0.1; `alpha` also exists and carries the
+#      same CSV today)
+#
+# THE OPERATOR ALONE DEPLOYS ONLY ITSELF. There is no assistant in the console
+# until an OLSConfig named `cluster` exists, and that needs an LLM provider and
+# a credential Secret — config-layer work, not done here.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: lightspeed-operator
+  namespace: openshift-lightspeed
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  name: lightspeed-operator
+  channel: stable
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

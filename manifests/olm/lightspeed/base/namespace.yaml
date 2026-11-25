@@ -1,0 +1,21 @@
+---
+# Namespace name comes from the operator's own suggestion, not invented:
+#   oc get packagemanifest lightspeed-operator -n openshift-marketplace -o json | jq -r \
+#     '.status.defaultChannel as $d | .status.channels[]|select(.name==$d)
+#      | .currentCSVDesc.annotations["operatorframework.io/suggested-namespace"]'
+#   -> openshift-lightspeed
+#
+# The name is not a free choice: the operator only reconciles an OLSConfig from
+# this namespace, and its operand (the lightspeed service and console plugin)
+# runs here alongside it.
+#
+# The cluster-monitoring label is also the operator's own request — its CSV
+# carries operatorframework.io/cluster-monitoring: "true".
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-lightspeed
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
