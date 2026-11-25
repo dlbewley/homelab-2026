@@ -8,8 +8,8 @@ that makes it do something.
 |---|---|
 | package | `rhcl-operator` |
 | catalog | `redhat-operators` |
-| channel | `stable` (the only one) |
-| CSV | `rhcl-operator.v1.4.3` |
+| channel | `stable-1.5` (the only one in the OpenShift 5.0 catalog; `stable` is gone) |
+| CSV | `rhcl-operator.v1.5.0` once migrated; the hub still runs `rhcl-operator.v1.4.3` — see the Subscription's comment |
 | install mode | AllNamespaces → `spec: {}` |
 | namespace | `kuadrant-system` |
 
@@ -34,7 +34,7 @@ Tracked as `homelab-2026-o8y.3`, part of the epic `homelab-2026-o8y`.
 
 | What | Where | Why |
 |---|---|---|
-| `rhcl-operator` | `manifests/olm/connectivity-link` | Pulls in `authorino-operator`, `limitador-operator` and `dns-operator` with it |
+| `rhcl-operator` | `manifests/olm/connectivity-link` | In 1.4, pulls in `authorino-operator`, `limitador-operator` and `dns-operator` as OLM dependencies; in 1.5 the operator deploys them itself |
 | `Kuadrant/kuadrant` | `base/kuadrant.yaml` | Deploys Authorino and Limitador. No spec |
 
 ## The namespace, and where Red Hat's guides disagree

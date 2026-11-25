@@ -1,7 +1,8 @@
 ---
-# Red Hat Connectivity Link — the productised Kuadrant. Installing this one
-# package pulls in authorino-operator, limitador-operator and dns-operator
-# alongside it in the same namespace; they need no Subscriptions of their own.
+# Red Hat Connectivity Link — the productised Kuadrant. From 1.5 this is one
+# package and one CSV: the operator deploys the Authorino, Limitador and DNS
+# operators itself, as plain Deployments. In 1.4 they were separate OLM
+# packages that this one pulled in as dependencies.
 #
 # Here because Red Hat OpenShift AI's Models-as-a-Service cannot work without it:
 # MaaS enforces authentication and token rate limits with kuadrant.io AuthPolicy
@@ -9,13 +10,30 @@
 # operator the DataScienceCluster reports "Red Hat Connectivity Link not
 # installed".
 #
-# Channel verified against the live hub catalog on 2026-10-10:
+# Channel verified against the live hub catalog (OpenShift 5.0.1) on 2026-11-25:
 #   oc get packagemanifest rhcl-operator -n openshift-marketplace \
 #     -o jsonpath='{.status.defaultChannel}'
-#   -> stable  (rhcl-operator.v1.4.3; it is the only channel)
+#   -> stable-1.5  (rhcl-operator.v1.5.0; it is the only channel)
 #
-# MaaS needs Connectivity Link 1.3 or later, and RHOAI 3.5 asks for 1.4.x.
-# Connectivity Link 1.4 is supported on OpenShift 4.19 to 4.22.
+# The `stable` channel this used to name does not exist in the 5.0 catalog.
+# After the hub's upgrade every Subscription in kuadrant-system reported
+#   ResolutionFailed: no operators found in channel stable of package rhcl-operator
+#
+# CHANGING THIS CHANNEL DOES NOT UPGRADE THE HUB. rhcl-operator.v1.5.0 has no
+# `replaces` and no olm.skipRange, so OLM has no path from the installed
+# rhcl-operator.v1.4.3 to it. The hub also still has the three 1.4 dependency
+# Subscriptions (authorino-operator, limitador-operator, dns-operator), which
+# name packages 1.5 no longer uses. Moving the hub to 1.5 is a manual
+# migration, not yet done or rehearsed: remove the four 1.4 CSVs and
+# Subscriptions, then let this Subscription install 1.5.0 fresh. The CRDs and
+# the Kuadrant CR are expected to survive that, but it was not tested. Only a
+# clean install of 1.5.0 was tried, on the Disco cluster (OpenShift 5.0.1) on
+# 2026-11-24: one CSV, Authorino and Limitador came up.
+#
+# MaaS needs Connectivity Link 1.3 or later, and RHOAI 3.5 asks for 1.4.x, so
+# 1.5 is outside what RHOAI 3.5 names. Connectivity Link 1.4 is supported on
+# OpenShift 4.19 to 4.22; the 1.5 documentation lists 4.20 to 4.22, and does
+# not list 5.0 although the 5.0 catalog ships it.
 #
 # The Subscription is named after the package. Upstream MaaS examples call it
 # `kuadrant-operator`; Red Hat's docs call it `rhcl-operator`, and that is the
@@ -31,7 +49,7 @@
 # cancelled by a caller that had stopped waiting. Upstream MaaS documents this
 # exact symptom and this fix. 2s is its recommended value. The operator binary
 # in rhcl-operator.v1.4.3 does read the variable, though no Red Hat document
-# mentions it.
+# mentions it. Whether rhcl-operator.v1.5.0 still reads it was not checked.
 #
 # STILL UNSET, deliberately: RATELIMIT_CHECK_SERVICE_FAILURE_MODE and
 # RATELIMIT_REPORT_SERVICE_FAILURE_MODE, which decide whether token limits
@@ -47,7 +65,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   name: rhcl-operator
-  channel: stable
+  channel: stable-1.5
   source: redhat-operators
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic

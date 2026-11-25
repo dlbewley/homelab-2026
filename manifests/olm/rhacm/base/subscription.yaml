@@ -1,8 +1,16 @@
 ---
-# Channel verified against the live hub cluster on 2026-08-09:
+# Channel verified against the live hub cluster (OpenShift 5.0.1) on 2026-11-25:
 #   oc get packagemanifest advanced-cluster-management -n openshift-marketplace \
 #     -o jsonpath='{.status.defaultChannel}'
-#   -> release-2.17  (advanced-cluster-management.v2.17.0)
+#   -> release-5.0  (advanced-cluster-management.v5.0.0)
+# The 5.0 catalog also still carries release-2.17 (2.17.4), and a stable-5.0
+# channel with the same 5.0.0 CSV. 5.0.0 declares
+#   olm.skipRange: >=2.17.0-0 <5.0.0
+# so OLM upgrades 2.17.4 to it directly.
+#
+# multicluster-engine has no Subscription in git. The MultiClusterHub operator
+# creates and owns it (label installer.name=multiclusterhub), so it is ACM that
+# moves it from stable-2.17 to stable-5.0 during this upgrade. Do not add one.
 #
 # The channel is version-pinned, so this does not float across ACM releases.
 # Bumping it is a deliberate, reviewable change — read the ACM upgrade notes
@@ -17,7 +25,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   name: advanced-cluster-management
-  channel: release-2.17
+  channel: release-5.0
   source: redhat-operators
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic
