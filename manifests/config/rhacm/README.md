@@ -45,7 +45,7 @@ manifest ship an empty spec, and this follows them.
 
 `MultiClusterHub` does expose levers worth knowing about — `availabilityConfig:
 Basic` reduces replica counts, which suits a lab, and `overrides.components` can
-disable individual pieces. None were verified against 2.17 here, and the CSV
+disable individual pieces. None were verified against 2.17 or 5.0 here, and the CSV
 ships no spec descriptors to check against, so defaults come first. Tune once it
 is running and the cost is visible rather than guessing up front.
 

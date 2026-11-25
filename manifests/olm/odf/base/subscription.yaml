@@ -1,7 +1,17 @@
 ---
-# Channel verified against the live hub cluster on 2026-07-27:
+# Channel verified against the live hub cluster (OpenShift 5.0.1) on 2026-11-25:
 #   oc get packagemanifest odf-operator -n openshift-marketplace \
 #     -o jsonpath='{.status.defaultChannel}'
+#   -> stable-5.0  (odf-operator.v5.0.0-rhodf)
+#
+# ODF's channel tracks the OpenShift release, so it moves with every cluster
+# upgrade. The hub went to 5.0.1 on 2026-11-24 with this still on stable-4.22;
+# odf-operator.v4.22.9-rhodf then crash-looped (CSV Failed, ComponentUnhealthy)
+# while Ceph itself stayed HEALTH_OK. 5.0.0-rhodf declares
+#   olm.skipRange: >=4.22.3 <5.0.0-rhodf
+# so OLM upgrades 4.22.9 to it directly. The dependency Subscriptions OLM
+# created in this namespace (rook-ceph, ocs, mcg, cephcsi and the rest) are
+# named for stable-4.22 and are not in git; check that they follow.
 # Re-check with scripts/verify-channels.sh after a cluster upgrade.
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -12,7 +22,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   name: odf-operator
-  channel: stable-4.22
+  channel: stable-5.0
   source: redhat-operators
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic
